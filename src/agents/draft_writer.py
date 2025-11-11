@@ -8,7 +8,7 @@ professional, well-structured email draft that includes all key points.
 
 from typing import Dict
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 
 
 class DraftWriterAgent:

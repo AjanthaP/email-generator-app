@@ -8,7 +8,7 @@ emails feel more authentic and tailored to the user.
 
 from typing import Dict, Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 import json
 import os
 

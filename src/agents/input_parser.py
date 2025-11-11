@@ -8,7 +8,7 @@ generation: recipient, purpose, key points, tone preference, and constraints.
 
 from typing import Dict, Any, Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 import json
 

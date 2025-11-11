@@ -8,7 +8,7 @@ or return the draft as-is if it meets quality standards.
 
 from typing import Dict, List
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 import re
 
 
