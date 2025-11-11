@@ -1,0 +1,31 @@
+[
+  {
+    "draft": "\n\nBest regards,\nAlex Johnson\nProduct Manager, TechCorp",
+    "metadata": {
+      "intent": "",
+      "recipient": "",
+      "recipient_email": "",
+      "tone": "formal"
+    }
+  },
+  {
+    "draft": "Dear Recipient,\n\nwrite formal email about enquering the status of ongoing production issue on server down for 5 mins.\n\n\u2022 write formal email about enquering the status of ongoing production issue on server down for 5 mins\n\nI look forward to hearing from you.\n\nBest regards",
+    "metadata": {
+      "intent": "status_update",
+      "recipient": "Recipient",
+      "recipient_email": "",
+      "tone": "formal"
+    }
+  },
+  {
+    "draft": "Dear Recipient,\n\nwrite formal email about enquering the status of ongoing production issue on server down for 5 mins.\n\n\u2022 write formal email about enquering the status of ongoing production issue on server down for 5 mins\n\nI look forward to hearing from you.\n\nBest regards",
+    "metadata": {
+      "intent": "status_update",
+      "recipient": "Recipient",
+      "recipient_email": "",
+      "tone": "formal",
+      "source": "llm",
+      "model": null
+    }
+  }
+]

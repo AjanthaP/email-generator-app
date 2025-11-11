@@ -15,8 +15,12 @@ class Settings(BaseSettings):
     max_tokens: int = 1000
     temperature: float = 0.7
     
+    # Stub/Test Mode
+    donotusegemini: bool = False
+    
     class Config:
         env_file = ".env"
         case_sensitive = False
+        extra = "ignore"  # Ignore extra env vars not defined as fields
 
 settings = Settings()

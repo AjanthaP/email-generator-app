@@ -1,4 +1,7 @@
-from typing import TypedDict, Any, Dict, Callable
+from typing import TypedDict, Any, Dict, Callable, Optional
+import os
+import sys
+
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from src.utils.config import settings
@@ -68,13 +71,118 @@ def default_graph_order() -> list[str]:
     ]
 
 
-def execute_workflow(user_input: str, llm: ChatGoogleGenerativeAI | None = None) -> EmailState:
+def _detect_no_gemini_flag() -> bool:
+    """Detect whether the environment or command-line requests a non-Gemini run.
+
+    Checks (in order):
+    - Environment variable `DONOTUSEGEMINI` or `NO_GEMINI` set to a truthy value
+    - Command-line flag `-donotusegemini` present in sys.argv
+    """
+    env_val = os.environ.get("DONOTUSEGEMINI") or os.environ.get("NO_GEMINI")
+    if env_val and env_val.lower() in ("1", "true", "yes", "y"):
+        return True
+
+    # Check command-line args
+    if any(arg.lower() == "-donotusegemini" for arg in sys.argv[1:]):
+        return True
+
+    return False
+
+
+def _generate_stub_state(user_input: str, tone: str = "formal") -> EmailState:
+    """Create a lightweight stubbed state (no LLM calls) for local testing.
+
+    This function produces reasonable defaults for parsed_data, intent, and a basic draft.
+    It's intentionally simplistic and intended only for local UI/testing when Gemini is unavailable.
+    """
+    # Try to extract recipient from a prefixed line
+    recipient = "Recipient"
+    recipient_email = ""
+    lines = [ln.strip() for ln in user_input.splitlines() if ln.strip()]
+    for ln in lines[:3]:
+        if ln.lower().startswith("recipient email:"):
+            recipient_email = ln.split(":", 1)[1].strip()
+        if ln.lower().startswith("recipient:"):
+            recipient = ln.split(":", 1)[1].strip()
+
+    # Simple intent heuristics
+    text = user_input.lower()
+    if "follow" in text or "follow-up" in text:
+        intent = "follow_up"
+    elif "thank" in text:
+        intent = "thank_you"
+    elif "meeting" in text or "schedule" in text:
+        intent = "meeting_request"
+    elif "apolog" in text:
+        intent = "apology"
+    elif "update" in text or "status" in text:
+        intent = "status_update"
+    else:
+        intent = "outreach"
+
+    # Key points: take first 2 short lines or first sentence fragments
+    key_points = []
+    for ln in lines:
+        if len(key_points) >= 4:
+            break
+        if len(ln) > 20:
+            key_points.append(ln if len(ln) < 120 else ln[:120])
+
+    if not key_points:
+        # fallback: split by sentences
+        key_points = [s.strip() for s in user_input.replace("\n", " ").split(".") if s.strip()][:3]
+
+    purpose = key_points[0] if key_points else text[:120]
+
+    draft_lines = [f"Dear {recipient},\n\n"]
+    draft_lines.append(f"{purpose}.\n\n")
+    if key_points:
+        for p in key_points:
+            draft_lines.append(f"• {p}\n")
+        draft_lines.append("\n")
+
+    draft_lines.append("I look forward to hearing from you.\n\nBest regards")
+
+    draft = "".join(draft_lines)
+
+    state: EmailState = {
+        "user_input": user_input,
+        "parsed_data": {
+            "recipient_name": recipient,
+            "recipient_email": recipient_email,
+            "email_purpose": purpose,
+            "key_points": key_points,
+            "tone_preference": tone,
+            "constraints": {},
+            "context": "stubbed"
+        },
+        "recipient": recipient,
+        "intent": intent,
+        "draft": draft,
+        "tone": tone,
+        "personalized_draft": draft,
+        "final_draft": draft,
+    }
+
+    # Metadata to indicate this is a local stubbed response
+    state["metadata"] = {"source": "stub", "model": None}
+
+    return state
+
+
+def execute_workflow(user_input: str, llm: Optional[ChatGoogleGenerativeAI] = None, use_stub: Optional[bool] = None) -> EmailState:
     """Execute the email workflow sequentially and return the final state.
 
-    This is a simple LangGraph-like runner that calls each agent node in order.
-    Agents receive the current state dict and should return a dict of updates
-    which will be merged into the state.
+    If `use_stub` is True, the function will generate a stubbed state without calling the LLMs.
+    If `use_stub` is None, it will auto-detect via environment variables or command-line flag.
     """
+    if use_stub is None:
+        use_stub = _detect_no_gemini_flag()
+
+    if use_stub:
+        # Return a stubbed state for local testing without hitting Gemini
+        return _generate_stub_state(user_input)
+
     if llm is None:
         llm = _init_llm()
 
@@ -83,6 +191,22 @@ def execute_workflow(user_input: str, llm: ChatGoogleGenerativeAI | None = None)
 
     # Initialize state
     state: EmailState = {"user_input": user_input, "tone": "formal"}
+
+    # Attach metadata indicating we're attempting to use the LLM by default.
+    # If a quota fallback happens later, this will be updated to indicate stub.
+    state["metadata"] = {"source": "llm", "model": settings.gemini_model}
+
+    def _is_quota_error(exc: Exception) -> bool:
+        """Heuristic to detect Gemini quota / 429 ResourceExhausted errors.
+
+        We keep this lightweight: look for common substrings. If detected,
+        we'll fall back to the local stubbed generator to avoid a broken state.
+        """
+        msg = str(exc).lower()
+        if not msg:
+            return False
+        keywords = ["quota", "429", "resourceexhausted", "you exceeded", "generate_content_free_tier"]
+        return any(k in msg for k in keywords)
 
     # Run agents in order, merging returned updates into state
     for node_name in order:
@@ -96,9 +220,29 @@ def execute_workflow(user_input: str, llm: ChatGoogleGenerativeAI | None = None)
             for k, v in updates.items():
                 state[k] = v  # type: ignore[index]
         except Exception as e:
-            # On error, capture review_notes and continue
+            # If it's a Gemini quota/429 error, switch to the stubbed generator
+            # immediately and return a usable state rather than continuing with
+            # missing/partial fields.
             state.setdefault("review_notes", {})
             state["review_notes"][node_name] = {"error": str(e)}
+
+            if _is_quota_error(e):
+                state["review_notes"]["gemini_quota_fallback"] = {
+                    "message": "Detected Gemini quota / 429 error and falling back to local stubbed generator.",
+                    "original_error": str(e),
+                }
+                # Return a stubbed state which provides parsed_data, intent and a basic draft
+                stub_state = _generate_stub_state(user_input, tone=state.get("tone", "formal"))
+                # Attach the review notes to stub_state so callers know why fallback occurred
+                stub_state.setdefault("review_notes", {})
+                stub_state["review_notes"].update(state.get("review_notes", {}))
+                # Update metadata to indicate source is now stub but record the attempted model
+                stub_state.setdefault("metadata", {})
+                stub_state["metadata"].update({"source": "stub", "fallback_from_model": settings.gemini_model})
+                return stub_state
+
+            # Non-quota error: capture and continue to next agent (best-effort)
+            # This keeps the workflow robust when a single agent fails.
 
     return state
 
