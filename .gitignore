@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.env
+env/
+venv/
+.venv/
+.venv\
+venv\
+env\
+.Python
+
+# IDEs
+.vscode/
+.idea/
+
+# Distribution
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
+
+# Mac
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Python virtual env
+venv/
+
+# Byte-compiled / optimized / DLL files
+*.pyc
+*.pyd
+
+# Test reports
+htmlcov/
+.coverage
+.coverage.*
+
+# Misc
+*.sqlite3
+
+# Node modules (if node used)
+node_modules/

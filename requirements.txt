@@ -1,0 +1,19 @@
+# Core dependencies for AI Email Assistant
+# Minimized set to avoid complex build system issues
+
+# LLM & Workflow
+langchain>=0.0.350
+langchain-core>=0.1.0
+google-generativeai>=0.3.0
+langgraph>=0.0.20
+
+# Web UI
+streamlit>=1.28.0
+
+# Utilities
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+
+# Testing (optional)
+pytest>=7.4.0
+black>=23.0.0

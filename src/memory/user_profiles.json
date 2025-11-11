@@ -1,0 +1,14 @@
+{
+  "default": {
+    "user_name": "Alex Johnson",
+    "user_title": "Product Manager",
+    "user_company": "TechCorp",
+    "signature": "\n\nBest regards,\nAlex Johnson\nProduct Manager, TechCorp",
+    "style_notes": "professional and clear, prefers concise communication",
+    "preferences": {
+      "default_tone": "formal",
+      "use_emojis": false,
+      "preferred_length": 150
+    }
+  }
+}
