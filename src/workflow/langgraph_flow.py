@@ -29,7 +29,11 @@ class EmailState(TypedDict, total=False):
 
 
 def _init_llm() -> ChatGoogleGenerativeAI:
-    """Initialize the LLM using settings from config."""
+    """Initialize the LLM using settings from config.
+    
+    NOTE: This should only be called when we're actually going to use the LLM,
+    as instantiation may trigger validation calls to the Gemini API.
+    """
     return ChatGoogleGenerativeAI(
         model=settings.gemini_model,
         google_api_key=settings.gemini_api_key,
@@ -184,8 +188,10 @@ def execute_workflow(user_input: str, llm: Optional[ChatGoogleGenerativeAI] = No
 
     if use_stub:
         # Return a stubbed state for local testing without hitting Gemini
+        # IMPORTANT: Return early BEFORE creating any LLM instance
         return _generate_stub_state(user_input)
 
+    # Only create LLM if we're NOT using stub mode
     if llm is None:
         llm = _init_llm()
 
