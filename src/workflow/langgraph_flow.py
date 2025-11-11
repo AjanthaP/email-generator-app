@@ -12,6 +12,7 @@ from src.agents.tone_stylist import ToneStylistAgent
 from src.agents.personalization import PersonalizationAgent
 from src.agents.review_agent import ReviewAgent
 from src.agents.router import RouterAgent
+from src.utils.llm_wrapper import make_wrapper, LLMWrapper
 
 
 class EmailState(TypedDict, total=False):
@@ -39,12 +40,14 @@ def _init_llm() -> ChatGoogleGenerativeAI:
 
 def create_agents(llm: ChatGoogleGenerativeAI) -> Dict[str, Callable[[Dict], Dict]]:
     """Create and return instantiated agent callables keyed by name."""
-    input_parser = InputParserAgent(llm)
-    intent_detector = IntentDetectorAgent(llm)
-    draft_writer = DraftWriterAgent(llm)
-    tone_stylist = ToneStylistAgent(llm)
-    personalization = PersonalizationAgent(llm)
-    review = ReviewAgent(llm)
+    wrapper: LLMWrapper = make_wrapper(llm)
+
+    input_parser = InputParserAgent(llm, llm_wrapper=wrapper)
+    intent_detector = IntentDetectorAgent(llm, llm_wrapper=wrapper)
+    draft_writer = DraftWriterAgent(llm, llm_wrapper=wrapper)
+    tone_stylist = ToneStylistAgent(llm, llm_wrapper=wrapper)
+    personalization = PersonalizationAgent(llm, llm_wrapper=wrapper)
+    review = ReviewAgent(llm, llm_wrapper=wrapper)
     router = RouterAgent(llm)
 
     return {
@@ -248,3 +251,33 @@ def execute_workflow(user_input: str, llm: Optional[ChatGoogleGenerativeAI] = No
 
 
 __all__ = ["EmailState", "execute_workflow", "create_agents", "default_graph_order"]
+
+
+def generate_email(user_input: str, tone: str = "formal", use_stub: Optional[bool] = None) -> Dict[str, Any]:
+    """Convenience wrapper matching the v2 guide's example signature.
+
+    This wraps `execute_workflow` and returns a simplified dict containing
+    the final draft plus any metadata. Falls back through the same stub path
+    when `use_stub` is True or quota errors are detected.
+
+    Args:
+        user_input: Raw user prompt / description.
+        tone: Desired tone (formal, casual, assertive, empathetic, etc.).
+        use_stub: Force stub mode (no external LLM calls). If None, autodetect.
+
+    Returns:
+        Dict with keys:
+            - final_draft: str (best available draft)
+            - metadata: dict (source/model/fallback info)
+            - review_notes: optional dict of agent-level errors/fallback reasons
+    """
+    state = execute_workflow(user_input, use_stub=use_stub)
+    # Choose best available draft key
+    final = state.get("final_draft") or state.get("personalized_draft") or state.get("styled_draft") or state.get("draft") or ""
+    return {
+        "final_draft": final,
+        "metadata": state.get("metadata", {}),
+        "review_notes": state.get("review_notes", {}),
+    }
+
+__all__.append("generate_email")
