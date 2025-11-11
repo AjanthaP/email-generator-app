@@ -10,6 +10,7 @@ from typing import Dict, Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from enum import Enum
+from src.utils.llm_wrapper import LLMWrapper, make_wrapper
 
 
 class EmailIntent(str, Enum):
@@ -45,7 +46,7 @@ class IntentDetectorAgent:
         >>> print(intent)  # "outreach", "follow_up", etc.
     """
     
-    def __init__(self, llm: ChatGoogleGenerativeAI):
+    def __init__(self, llm: ChatGoogleGenerativeAI, llm_wrapper: Optional[LLMWrapper] = None):
         """
         Initialize Intent Detector Agent.
         
@@ -53,6 +54,7 @@ class IntentDetectorAgent:
             llm: ChatGoogleGenerativeAI instance for processing
         """
         self.llm = llm
+        self.llm_wrapper = llm_wrapper or make_wrapper(llm)
         self.intents = [intent.value for intent in EmailIntent]
         self.prompt = ChatPromptTemplate.from_template("""
         You are an expert at classifying email intents.
@@ -80,7 +82,7 @@ class IntentDetectorAgent:
         """
         try:
             chain = self.prompt | self.llm
-            response = chain.invoke({
+            response = self.llm_wrapper.invoke_chain(chain, {
                 "intents": ", ".join(self.intents),
                 "email_purpose": parsed_data.get("email_purpose", ""),
                 "key_points": ", ".join(parsed_data.get("key_points", [])),

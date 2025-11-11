@@ -6,10 +6,11 @@ grammar, clarity, tone alignment, and completeness. It can suggest improvements
 or return the draft as-is if it meets quality standards.
 """
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 import re
+from src.utils.llm_wrapper import LLMWrapper, make_wrapper
 
 
 class ReviewAgent:
@@ -33,7 +34,7 @@ class ReviewAgent:
         >>> print(result["final_draft"])
     """
     
-    def __init__(self, llm: ChatGoogleGenerativeAI):
+    def __init__(self, llm: ChatGoogleGenerativeAI, llm_wrapper: Optional[LLMWrapper] = None):
         """
         Initialize Review Agent.
         
@@ -41,6 +42,7 @@ class ReviewAgent:
             llm: ChatGoogleGenerativeAI instance for processing
         """
         self.llm = llm
+        self.llm_wrapper = llm_wrapper or make_wrapper(llm)
         self.review_prompt = ChatPromptTemplate.from_template("""
         You are an expert email reviewer and editor. Analyze this email draft and improve it if needed.
         
@@ -90,7 +92,7 @@ class ReviewAgent:
             
             # Use LLM to review and improve
             chain = self.review_prompt | self.llm
-            response = chain.invoke({
+            response = self.llm_wrapper.invoke_chain(chain, {
                 "draft": draft,
                 "tone": tone,
                 "intent": intent

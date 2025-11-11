@@ -27,5 +27,16 @@
       "source": "llm",
       "model": null
     }
+  },
+  {
+    "draft": "Dear Recipient,\n\nWrite a thank you email to my manager Jessica for her mentorship during my first quarter at the company. Mention specifi.\n\n\u2022 Write a thank you email to my manager Jessica for her mentorship during my first quarter at the company. Mention specifi\n\nI look forward to hearing from you.\n\nBest regards",
+    "metadata": {
+      "intent": "thank_you",
+      "recipient": "Recipient",
+      "recipient_email": "",
+      "tone": "formal",
+      "source": "stub",
+      "model": "gemini-2.0-flash-exp"
+    }
   }
 ]

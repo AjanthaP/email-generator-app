@@ -11,6 +11,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 import json
 import os
+from src.utils.llm_wrapper import LLMWrapper, make_wrapper
 
 
 class PersonalizationAgent:
@@ -33,7 +34,8 @@ class PersonalizationAgent:
     """
     
     def __init__(self, llm: ChatGoogleGenerativeAI, 
-                 profile_path: str = "src/memory/user_profiles.json"):
+                 profile_path: str = "src/memory/user_profiles.json",
+                 llm_wrapper: Optional[LLMWrapper] = None):
         """
         Initialize Personalization Agent.
         
@@ -42,6 +44,7 @@ class PersonalizationAgent:
             profile_path: Path to user profiles JSON file
         """
         self.llm = llm
+        self.llm_wrapper = llm_wrapper or make_wrapper(llm)
         self.profile_path = profile_path
         self.profiles = self._load_profiles()
         
@@ -143,7 +146,7 @@ class PersonalizationAgent:
             profile = self.get_profile(user_id)
             
             chain = self.prompt | self.llm
-            response = chain.invoke({
+            response = self.llm_wrapper.invoke_chain(chain, {
                 "draft": draft,
                 "user_name": profile.get("user_name", ""),
                 "user_title": profile.get("user_title", ""),

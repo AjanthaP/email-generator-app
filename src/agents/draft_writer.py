@@ -6,9 +6,10 @@ the appropriate template based on the detected intent and generates a
 professional, well-structured email draft that includes all key points.
 """
 
-from typing import Dict
+from typing import Dict, Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
+from src.utils.llm_wrapper import LLMWrapper, make_wrapper
 
 
 class DraftWriterAgent:
@@ -33,7 +34,7 @@ class DraftWriterAgent:
         >>> draft = writer.write("outreach", parsed_data, "formal")
     """
     
-    def __init__(self, llm: ChatGoogleGenerativeAI):
+    def __init__(self, llm: ChatGoogleGenerativeAI, llm_wrapper: Optional[LLMWrapper] = None):
         """
         Initialize Draft Writer Agent.
         
@@ -41,6 +42,7 @@ class DraftWriterAgent:
             llm: ChatGoogleGenerativeAI instance for processing
         """
         self.llm = llm
+        self.llm_wrapper = llm_wrapper or make_wrapper(llm)
         self.intent_templates = {
             "outreach": self._get_outreach_prompt(),
             "follow_up": self._get_followup_prompt(),
@@ -263,7 +265,7 @@ class DraftWriterAgent:
             prompt = ChatPromptTemplate.from_template(template)
             chain = prompt | self.llm
             
-            response = chain.invoke({
+            response = self.llm_wrapper.invoke_chain(chain, {
                 "recipient": parsed_data.get("recipient_name", ""),
                 "purpose": parsed_data.get("email_purpose", ""),
                 "key_points": "\n- ".join(parsed_data.get("key_points", [])),

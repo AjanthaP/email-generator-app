@@ -6,9 +6,10 @@ desired tone (formal, casual, assertive, empathetic). It maintains the
 core message while changing vocabulary, structure, and style.
 """
 
-from typing import Dict
+from typing import Dict, Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
+from src.utils.llm_wrapper import LLMWrapper, make_wrapper
 
 
 class ToneStylistAgent:
@@ -68,7 +69,7 @@ class ToneStylistAgent:
         }
     }
     
-    def __init__(self, llm: ChatGoogleGenerativeAI):
+    def __init__(self, llm: ChatGoogleGenerativeAI, llm_wrapper: Optional[LLMWrapper] = None):
         """
         Initialize Tone Stylist Agent.
         
@@ -76,6 +77,7 @@ class ToneStylistAgent:
             llm: ChatGoogleGenerativeAI instance for processing
         """
         self.llm = llm
+        self.llm_wrapper = llm_wrapper or make_wrapper(llm)
         self.prompt = ChatPromptTemplate.from_template("""
         You are an expert at adjusting email tone while preserving the core message.
         
@@ -116,7 +118,7 @@ class ToneStylistAgent:
             guidelines = self.TONE_GUIDELINES.get(tone, self.TONE_GUIDELINES["formal"])
             
             chain = self.prompt | self.llm
-            response = chain.invoke({
+            response = self.llm_wrapper.invoke_chain(chain, {
                 "draft": draft,
                 "tone": tone,
                 **guidelines

@@ -11,6 +11,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 import json
+from src.utils.llm_wrapper import LLMWrapper, make_wrapper
 
 
 class ParsedInput(BaseModel):
@@ -44,7 +45,7 @@ class InputParserAgent:
         >>> print(result.email_purpose)
     """
     
-    def __init__(self, llm: ChatGoogleGenerativeAI):
+    def __init__(self, llm: ChatGoogleGenerativeAI, llm_wrapper: Optional[LLMWrapper] = None):
         """
         Initialize Input Parser Agent.
         
@@ -52,6 +53,7 @@ class InputParserAgent:
             llm: ChatGoogleGenerativeAI instance for processing
         """
         self.llm = llm
+        self.llm_wrapper = llm_wrapper or make_wrapper(llm)
         self.prompt = ChatPromptTemplate.from_template("""
         You are an expert at understanding email composition requests.
         
@@ -92,7 +94,7 @@ class InputParserAgent:
         """
         try:
             chain = self.prompt | self.llm
-            response = chain.invoke({"user_input": user_input})
+            response = self.llm_wrapper.invoke_chain(chain, {"user_input": user_input})
             
             # Extract JSON from response
             content = response.content
