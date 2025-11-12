@@ -1,14 +1,16 @@
 # Frontend Deployment (Vite + React)
 
-platform = "static"
+platform = "node"
 
 # Build settings
 [build]
 command = "npm install && npm run build"
-publish = "dist"
 
 [build.environment]
 NODE_VERSION = "18"
+
+[deploy]
+command = "npx serve -s dist -l ${PORT}"
 
 # Environment variables
 # Set VITE_API_BASE_URL in Railway dashboard to your backend URL
