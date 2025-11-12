@@ -1,5 +1,7 @@
 # Frontend Deployment (Vite + React)
 
+platform = "static"
+
 # Build settings
 [build]
 command = "npm install && npm run build"
