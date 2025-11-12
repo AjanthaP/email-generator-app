@@ -58,7 +58,11 @@ async def root():
 @app.get("/health", response_model=HealthCheckResponse)
 async def health_check() -> HealthCheckResponse:
     """Lightweight readiness endpoint for monitoring."""
-    return HealthCheckResponse(app_name=settings.app_name)
+    return HealthCheckResponse(
+        status="ok",
+        app_name=settings.app_name,
+        version="1.0.0"
+    )
 
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
