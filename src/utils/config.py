@@ -1,5 +1,7 @@
 from pydantic_settings import BaseSettings
-from typing import Optional, List
+from pydantic import field_validator
+from typing import Optional, List, Union
+import json
 
 class Settings(BaseSettings):
     # API Configuration
@@ -90,11 +92,27 @@ class Settings(BaseSettings):
     enable_gmail: bool = True
     gmail_credentials_file: str = "config/gmail_credentials.json"
     gmail_token_file: str = "data/gmail_token.pickle"
-    gmail_scopes: List[str] = [
+    gmail_scopes: Union[List[str], str] = [
         'https://www.googleapis.com/auth/gmail.send',
         'https://www.googleapis.com/auth/gmail.modify',
         'https://www.googleapis.com/auth/gmail.readonly'
     ]
+    
+    @field_validator('gmail_scopes', 'google_oauth_scopes', 'github_oauth_scopes', 'microsoft_oauth_scopes', mode='before')
+    @classmethod
+    def parse_oauth_scopes(cls, v):
+        """Parse JSON string or list for OAuth scopes."""
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return parsed
+                return [parsed]
+            except json.JSONDecodeError:
+                if ',' in v:
+                    return [item.strip() for item in v.split(',')]
+                return [v] if v else []
+        return v if isinstance(v, list) else [v]
     
     # OAuth Configuration
     enable_oauth: bool = True
@@ -105,7 +123,7 @@ class Settings(BaseSettings):
     google_client_id: Optional[str] = None
     google_client_secret: Optional[str] = None
     google_redirect_uri: str = "http://localhost:8501/oauth/callback"
-    google_oauth_scopes: List[str] = [
+    google_oauth_scopes: Union[List[str], str] = [
         'openid', 'email', 'profile',
         'https://www.googleapis.com/auth/gmail.send',
         'https://www.googleapis.com/auth/gmail.modify'
@@ -116,7 +134,7 @@ class Settings(BaseSettings):
     github_client_id: Optional[str] = None
     github_client_secret: Optional[str] = None
     github_redirect_uri: str = "http://localhost:8501/oauth/github/callback"
-    github_oauth_scopes: List[str] = ['user:email', 'read:user']
+    github_oauth_scopes: Union[List[str], str] = ['user:email', 'read:user']
     
     # Microsoft OAuth Settings
     enable_microsoft_oauth: bool = False
@@ -124,7 +142,7 @@ class Settings(BaseSettings):
     microsoft_client_secret: Optional[str] = None
     microsoft_redirect_uri: str = "http://localhost:8501/oauth/microsoft/callback"
     microsoft_tenant: str = "common"
-    microsoft_oauth_scopes: List[str] = [
+    microsoft_oauth_scopes: Union[List[str], str] = [
         'openid', 'profile', 'email',
         'https://graph.microsoft.com/Mail.Send',
         'https://graph.microsoft.com/Mail.ReadWrite'
@@ -147,8 +165,26 @@ class Settings(BaseSettings):
     
     # Security Settings
     jwt_secret_key: Optional[str] = None  # Will be auto-generated if not set
-    cors_origins: List[str] = ["http://localhost:8501", "http://127.0.0.1:8501"]
-    allowed_hosts: List[str] = ["localhost", "127.0.0.1"]
+    cors_origins: Union[List[str], str] = '["http://localhost:8501", "http://127.0.0.1:8501"]'
+    allowed_hosts: Union[List[str], str] = '["localhost", "127.0.0.1"]'
+    
+    @field_validator('cors_origins', 'allowed_hosts', mode='before')
+    @classmethod
+    def parse_string_list(cls, v):
+        """Parse JSON string or list for cors_origins and allowed_hosts."""
+        if isinstance(v, str):
+            try:
+                # Try parsing as JSON array
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return parsed
+                return [parsed]  # Single string becomes list
+            except json.JSONDecodeError:
+                # If not JSON, split by comma or return as single item
+                if ',' in v:
+                    return [item.strip() for item in v.split(',')]
+                return [v] if v else []
+        return v if isinstance(v, list) else [v]
     
     # Feature Toggles
     disable_redis: bool = False
