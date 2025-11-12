@@ -2,11 +2,23 @@
 
 AI-powered email generation assistant built with FastAPI, React, and LangGraph. Generate professional emails with customizable tone, personalization, and context awareness.
 
-## 🚀 Quick Deploy to Railway
+## 🚀 Deployment
 
+This project uses a **two-app architecture**:
+
+### Backend (FastAPI) → Railway
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template)
 
-See [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md) for detailed deployment instructions.
+**Guide:** [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md)
+
+### Frontend (React + Vite) → Vercel/Netlify/Railway
+
+**Guide:** [FRONTEND_DEPLOYMENT.md](FRONTEND_DEPLOYMENT.md)
+
+**Recommended Stack:**
+- 🔧 **Backend:** Railway (Python/FastAPI with Docker)
+- 🎨 **Frontend:** Vercel (React/Vite - optimized static hosting)
+- 💾 **Database:** Railway Redis + MongoDB Atlas (optional)
 
 ## Quick start
 
