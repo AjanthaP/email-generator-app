@@ -54,6 +54,15 @@ class MemoryManager:
         except (json.JSONDecodeError, IOError):
             return []
 
+    def clear_drafts(self, user_id: str) -> None:
+        """Remove all persisted drafts for a user."""
+        user_drafts_file = self.drafts_dir / f"{user_id}_drafts.json"
+        if user_drafts_file.exists():
+            try:
+                user_drafts_file.unlink()
+            except OSError:
+                user_drafts_file.write_text("[]", encoding="utf-8")
+
     # --- Compatibility / Extended API ---
     def get_draft_history(self, user_id: str, limit: int = 20) -> list[Dict[str, Any]]:
         """Return recent draft history (most recent first) limited to `limit` entries.

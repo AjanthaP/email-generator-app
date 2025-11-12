@@ -25,6 +25,10 @@ class EmailGenerateRequest(BaseModel):
         default=False,
         description="If true, run the stub workflow instead of calling the LLM"
     )
+    reset_context: bool = Field(
+        default=False,
+        description="If true, clear stored history before running the workflow"
+    )
 
 
 class EmailGenerateResponse(BaseModel):
@@ -33,6 +37,10 @@ class EmailGenerateResponse(BaseModel):
     review_notes: Dict[str, Any] = Field(default_factory=dict)
     saved: bool = Field(default=False, description="Whether the draft was persisted to history")
     metrics: Dict[str, Any] = Field(default_factory=dict, description="Aggregated usage metrics")
+    context_mode: str = Field(
+        default="contextual",
+        description="Indicates whether the draft used prior context or started fresh",
+    )
 
 
 class HealthCheckResponse(BaseModel):

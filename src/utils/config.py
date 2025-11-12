@@ -101,6 +101,7 @@ class Settings(BaseSettings):
     oauth_config_file: str = "config/oauth_config.json"
     
     # Google OAuth Settings
+    enable_google_oauth: bool = True
     google_client_id: Optional[str] = None
     google_client_secret: Optional[str] = None
     google_redirect_uri: str = "http://localhost:8501/oauth/callback"
@@ -111,12 +112,14 @@ class Settings(BaseSettings):
     ]
     
     # GitHub OAuth Settings
+    enable_github_oauth: bool = False
     github_client_id: Optional[str] = None
     github_client_secret: Optional[str] = None
     github_redirect_uri: str = "http://localhost:8501/oauth/github/callback"
     github_oauth_scopes: List[str] = ['user:email', 'read:user']
     
     # Microsoft OAuth Settings
+    enable_microsoft_oauth: bool = False
     microsoft_client_id: Optional[str] = None
     microsoft_client_secret: Optional[str] = None
     microsoft_redirect_uri: str = "http://localhost:8501/oauth/microsoft/callback"

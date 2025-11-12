@@ -44,6 +44,32 @@ except ImportError:
     REQUESTS_AVAILABLE = False
     print("OAuth dependencies not installed. Run: pip install requests")
 
+_PLACEHOLDER_VALUES = {
+    "your_google_client_id_here",
+    "your_google_client_secret_here",
+    "your_github_client_id_here",
+    "your_github_client_secret_here",
+    "your_microsoft_client_id_here",
+    "your_microsoft_client_secret_here",
+    "changeme",
+    "placeholder",
+}
+
+
+def _has_real_value(value: Optional[str]) -> bool:
+    """Return True when the provided setting value is populated with non-placeholder data."""
+    if value is None:
+        return False
+    trimmed = str(value).strip()
+    if not trimmed:
+        return False
+    lowered = trimmed.lower()
+    if lowered in _PLACEHOLDER_VALUES:
+        return False
+    if lowered.startswith("your_"):
+        return False
+    return True
+
 
 class OAuthProvider:
     """Base class for OAuth providers."""
@@ -608,33 +634,49 @@ class OAuthManager:
             providers_config = {}
             
             # Google OAuth provider
-            if app_settings.google_client_id and app_settings.google_client_secret:
+            if (
+                app_settings.enable_google_oauth
+                and _has_real_value(app_settings.google_client_id)
+                and _has_real_value(app_settings.google_client_secret)
+            ):
                 providers_config['google'] = {
                     'type': 'google',
-                    'client_id': app_settings.google_client_id,
-                    'client_secret': app_settings.google_client_secret,
-                    'redirect_uri': app_settings.google_redirect_uri,
-                    'scope': ['openid', 'email', 'profile', 'https://www.googleapis.com/auth/gmail.readonly']
+                    'client_id': app_settings.google_client_id.strip(),
+                    'client_secret': app_settings.google_client_secret.strip(),
+                    'redirect_uri': app_settings.google_redirect_uri.strip(),
+                    'scope': list(app_settings.google_oauth_scopes or []),
+                    'enabled': True,
                 }
             
             # GitHub OAuth provider
-            if app_settings.github_client_id and app_settings.github_client_secret:
+            if (
+                app_settings.enable_github_oauth
+                and _has_real_value(app_settings.github_client_id)
+                and _has_real_value(app_settings.github_client_secret)
+            ):
                 providers_config['github'] = {
                     'type': 'github',
-                    'client_id': app_settings.github_client_id,
-                    'client_secret': app_settings.github_client_secret,
-                    'redirect_uri': app_settings.github_redirect_uri,
-                    'scope': ['user:email', 'read:user']
+                    'client_id': app_settings.github_client_id.strip(),
+                    'client_secret': app_settings.github_client_secret.strip(),
+                    'redirect_uri': app_settings.github_redirect_uri.strip(),
+                    'scope': list(app_settings.github_oauth_scopes or []),
+                    'enabled': True,
                 }
             
             # Microsoft OAuth provider
-            if app_settings.microsoft_client_id and app_settings.microsoft_client_secret:
+            if (
+                app_settings.enable_microsoft_oauth
+                and _has_real_value(app_settings.microsoft_client_id)
+                and _has_real_value(app_settings.microsoft_client_secret)
+            ):
                 providers_config['microsoft'] = {
                     'type': 'microsoft',
-                    'client_id': app_settings.microsoft_client_id,
-                    'client_secret': app_settings.microsoft_client_secret,
-                    'redirect_uri': app_settings.microsoft_redirect_uri,
-                    'scope': ['openid', 'email', 'profile', 'https://graph.microsoft.com/user.read']
+                    'client_id': app_settings.microsoft_client_id.strip(),
+                    'client_secret': app_settings.microsoft_client_secret.strip(),
+                    'redirect_uri': app_settings.microsoft_redirect_uri.strip(),
+                    'tenant': (app_settings.microsoft_tenant or 'common').strip() or 'common',
+                    'scope': list(app_settings.microsoft_oauth_scopes or []),
+                    'enabled': True,
                 }
             
             # If no providers configured via settings, fall back to config file
@@ -658,34 +700,65 @@ class OAuthManager:
             name: Provider name
             config: Provider configuration
         """
-        provider_type = config.get('type', '').lower()
-        
+        if not isinstance(config, dict):
+            print(f"Skipping OAuth provider {name}: configuration is not a mapping")
+            return
+
+        if config.get('enabled') is False:
+            return
+
+        client_id = config.get('client_id')
+        client_secret = config.get('client_secret')
+        redirect_uri = (config.get('redirect_uri') or '').strip()
+
+        if not (_has_real_value(client_id) and _has_real_value(client_secret)):
+            print(f"Skipping OAuth provider {name}: missing client credentials")
+            return
+
+        if not redirect_uri:
+            print(f"Skipping OAuth provider {name}: redirect URI is missing")
+            return
+
+        scope_config = config.get('scope')
+        scopes: Optional[List[str]]
+        if isinstance(scope_config, str):
+            scopes = [scope_config.strip()] if scope_config.strip() else None
+        elif isinstance(scope_config, (list, tuple, set)):
+            scopes = [str(item).strip() for item in scope_config if str(item).strip()]
+            if not scopes:
+                scopes = None
+        else:
+            scopes = None
+
+        provider_type = str(config.get('type', '')).lower().strip()
+
         if provider_type == 'google':
             provider = GoogleOAuthProvider(
-                client_id=config['client_id'],
-                client_secret=config['client_secret'],
-                redirect_uri=config['redirect_uri'],
-                scope=config.get('scope')
+                client_id=str(client_id).strip(),
+                client_secret=str(client_secret).strip(),
+                redirect_uri=redirect_uri,
+                scope=scopes,
             )
         elif provider_type == 'github':
             provider = GitHubOAuthProvider(
-                client_id=config['client_id'],
-                client_secret=config['client_secret'],
-                redirect_uri=config['redirect_uri'],
-                scope=config.get('scope')
+                client_id=str(client_id).strip(),
+                client_secret=str(client_secret).strip(),
+                redirect_uri=redirect_uri,
+                scope=scopes,
             )
         elif provider_type == 'microsoft':
+            tenant = str(config.get('tenant', 'common') or 'common').strip() or 'common'
             provider = MicrosoftOAuthProvider(
-                client_id=config['client_id'],
-                client_secret=config['client_secret'],
-                redirect_uri=config['redirect_uri'],
-                tenant=config.get('tenant', 'common'),
-                scope=config.get('scope')
+                client_id=str(client_id).strip(),
+                client_secret=str(client_secret).strip(),
+                redirect_uri=redirect_uri,
+                tenant=tenant,
+                scope=scopes,
             )
         else:
             print(f"Unknown OAuth provider type: {provider_type}")
             return
-        
+
         self.providers[name] = provider
     
     def start_oauth_flow(self, provider_name: str, user_id: str = None) -> Optional[Dict]:

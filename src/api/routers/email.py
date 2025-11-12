@@ -32,6 +32,11 @@ async def generate_email(payload: EmailGenerateRequest) -> EmailGenerateResponse
     if not payload.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt must not be empty")
 
+    user_id = payload.user_id or "default"
+    drafts_before_call = _memory_manager.load_drafts(user_id)
+    had_history = bool(drafts_before_call)
+    use_prior_context = had_history and not payload.reset_context
+
     full_prompt = _prepare_prompt(payload)
 
     try:
@@ -39,7 +44,7 @@ async def generate_email(payload: EmailGenerateRequest) -> EmailGenerateResponse
             execute_workflow,
             full_prompt,
             use_stub=payload.use_stub,
-            user_id=payload.user_id or "default",
+            user_id=user_id,
         )
     except Exception as exc:  # pylint: disable=broad-exception-caught
         raise HTTPException(status_code=500, detail=f"Workflow error: {exc}") from exc
@@ -65,13 +70,18 @@ async def generate_email(payload: EmailGenerateRequest) -> EmailGenerateResponse
         }
     )
 
+    context_mode = "contextual" if use_prior_context else "fresh"
+    metadata["context_mode"] = context_mode
+    if had_history:
+        metadata.setdefault("context_available", len(drafts_before_call))
+
     review_notes = state.get("review_notes", {}) or {}
     saved = False
 
     if payload.save_to_history:
         try:
             _memory_manager.save_draft(
-                payload.user_id or "default",
+                user_id,
                 {"draft": draft, "metadata": metadata},
             )
             saved = True
@@ -89,4 +99,5 @@ async def generate_email(payload: EmailGenerateRequest) -> EmailGenerateResponse
         review_notes=review_notes,
         saved=saved,
         metrics=usage_summary,
+        context_mode=context_mode,
     )

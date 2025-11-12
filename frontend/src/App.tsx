@@ -52,6 +52,8 @@ function App() {
   const [history, setHistory] = useState<DraftHistoryEntry[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
+  const [showHistory, setShowHistory] = useState(true)
+  const [pendingContextReset, setPendingContextReset] = useState(false)
 
   const apiBase = useMemo(() => import.meta.env.VITE_API_BASE_URL, [])
   const normalizedUserId = useMemo(() => userId.trim() || 'default', [userId])
@@ -189,6 +191,7 @@ function App() {
       return
     }
 
+    const resetForThisCall = pendingContextReset
     setLoading(true)
     try {
       const response = await generateEmail({
@@ -200,9 +203,11 @@ function App() {
         length_preference: lengthPreference,
         save_to_history: saveToHistory,
         use_stub: useStub,
+        reset_context: resetForThisCall,
       })
 
       setResult(response)
+      setPendingContextReset(false)
       if (response.saved) {
         try {
           const historyData = await getDraftHistory(normalizedUserId, 10)
@@ -299,6 +304,48 @@ function App() {
     : profileForm.user_name
     ? `Profile: ${profileForm.user_name}`
     : `User ID: ${normalizedUserId}`
+  const effectiveContextMode = result?.context_mode ?? (pendingContextReset ? 'fresh' : 'contextual')
+  const contextBadgeText =
+    effectiveContextMode === 'fresh' ? 'Fresh Context' : 'Uses Previous Context'
+  const nextDraftUsesFreshContext = pendingContextReset || history.length === 0
+  const nextDraftBadgeText = nextDraftUsesFreshContext
+    ? 'Next draft: Fresh context'
+    : 'Next draft: Uses history'
+  const nextDraftBadgeClass = nextDraftUsesFreshContext ? 'badge--success' : 'badge--info'
+
+  function formatDraftSummary(text?: string | null) {
+    if (!text) {
+      return 'Draft'
+    }
+    const firstLine = text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find((line) => line.length > 0)
+    const summary = firstLine ?? text.trim()
+    if (!summary) {
+      return 'Draft'
+    }
+    return summary.length > 80 ? `${summary.slice(0, 80)}…` : summary
+  }
+
+  function formatTimestamp(value?: string | number | null) {
+    if (!value) {
+      return ''
+    }
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) {
+      return String(value)
+    }
+    return date.toLocaleString()
+  }
+
+  function handleResetContext() {
+    setPendingContextReset(true)
+    setError(null)
+    setResult(null)
+    setDraftText('')
+    setCopyStatus(null)
+  }
 
   return (
     <div className="app">
@@ -316,7 +363,7 @@ function App() {
         )}
       </header>
 
-      <details className="settings" open>
+      <details className="settings">
         <summary>
           <div className="settings__title">
             <span>Account &amp; Profile</span>
@@ -535,9 +582,21 @@ function App() {
               </label>
             </div>
 
-            <button className="button" type="submit" disabled={loading}>
-              {loading ? 'Generating…' : 'Generate Email'}
-            </button>
+            <div className="form__actions">
+              <button className="button" type="submit" disabled={loading}>
+                {loading ? 'Generating…' : 'Generate Email'}
+              </button>
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={handleResetContext}
+              >
+                Reset Context
+              </button>
+              <span className={`badge ${nextDraftBadgeClass}`}>
+                {nextDraftBadgeText}
+              </span>
+            </div>
 
             {error && <p className="form__error">{error}</p>}
           </form>
@@ -545,6 +604,12 @@ function App() {
 
         <section className="panel panel--result">
           <h2>Draft Preview</h2>
+          {loading && (
+            <div className="draft__loading">
+              <span className="spinner" aria-hidden="true" />
+              <p>Generating draft…</p>
+            </div>
+          )}
           {!result && !loading && (
             <p className="placeholder">
               Submit a request to preview the generated email here.
@@ -558,6 +623,13 @@ function App() {
                   {isStubResponse ? 'Stub Response' : 'LLM Response'}
                 </span>
                 {modelName && <span className="badge">Model: {modelName}</span>}
+                <span
+                  className={`badge ${
+                    effectiveContextMode === 'fresh' ? 'badge--success' : 'badge--info'
+                  }`}
+                >
+                  {contextBadgeText}
+                </span>
                 {copyStatus && <span className="status status--inline">{copyStatus}</span>}
               </div>
 
@@ -576,68 +648,72 @@ function App() {
 
               {showDraftAside && (
                 <div className="draft__insights">
-                  {hasMetadata && (
-                    <details className="accordion" open>
-                      <summary>Email Metadata</summary>
-                      <dl className="metadata__list">
-                        {metadataEntries.map(([key, value]) => (
-                          <div key={key} className="metadata__item">
-                            <dt>{key}</dt>
-                            <dd>{formatMetadataValue(value)}</dd>
-                          </div>
-                        ))}
-                      </dl>
-                      <p className="metadata__status">
-                        {result.saved ? 'Draft saved to history.' : 'Draft not persisted.'}
-                      </p>
-                    </details>
-                  )}
+                  <div className="draft__insights-left">
+                    {hasMetadata && (
+                      <details className="accordion" open>
+                        <summary>Email Metadata</summary>
+                        <dl className="metadata__list">
+                          {metadataEntries.map(([key, value]) => (
+                            <div key={key} className="metadata__item">
+                              <dt>{key}</dt>
+                              <dd>{formatMetadataValue(value)}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                        <p className="metadata__status">
+                          {result.saved ? 'Draft saved to history.' : 'Draft not persisted.'}
+                        </p>
+                      </details>
+                    )}
+
+                    {hasReviewNotes && (
+                      <details className="accordion" open>
+                        <summary>Review Notes</summary>
+                        <pre className="draft__notes">{JSON.stringify(result.review_notes, null, 2)}</pre>
+                      </details>
+                    )}
+                  </div>
 
                   {usage && (
-                    <details className="accordion" open>
-                      <summary>LLM Usage</summary>
-                      <dl className="metrics__grid">
-                        <div className="metadata__item">
-                          <dt>LLM Calls</dt>
-                          <dd>{usage.llm_calls}</dd>
-                        </div>
-                        <div className="metadata__item">
-                          <dt>Total Tokens</dt>
-                          <dd>{usage.total_tokens}</dd>
-                        </div>
-                        <div className="metadata__item">
-                          <dt>Input Tokens</dt>
-                          <dd>{usage.input_tokens}</dd>
-                        </div>
-                        <div className="metadata__item">
-                          <dt>Output Tokens</dt>
-                          <dd>{usage.output_tokens}</dd>
-                        </div>
-                        <div className="metadata__item">
-                          <dt>Avg Latency</dt>
-                          <dd>{usage.avg_latency_ms} ms</dd>
-                        </div>
-                        {usage.cost_tracking_enabled && (
+                    <aside className="draft__insights-right">
+                      <details className="accordion" open>
+                        <summary>LLM Usage</summary>
+                        <dl className="metrics__grid">
                           <div className="metadata__item">
-                            <dt>Est. Cost</dt>
-                            <dd>${usage.estimated_cost_usd.toFixed(6)}</dd>
+                            <dt>LLM Calls</dt>
+                            <dd>{usage.llm_calls}</dd>
                           </div>
+                          <div className="metadata__item">
+                            <dt>Total Tokens</dt>
+                            <dd>{usage.total_tokens}</dd>
+                          </div>
+                          <div className="metadata__item">
+                            <dt>Input Tokens</dt>
+                            <dd>{usage.input_tokens}</dd>
+                          </div>
+                          <div className="metadata__item">
+                            <dt>Output Tokens</dt>
+                            <dd>{usage.output_tokens}</dd>
+                          </div>
+                          <div className="metadata__item">
+                            <dt>Avg Latency</dt>
+                            <dd>{usage.avg_latency_ms} ms</dd>
+                          </div>
+                          {usage.cost_tracking_enabled && (
+                            <div className="metadata__item">
+                              <dt>Est. Cost</dt>
+                              <dd>${usage.estimated_cost_usd.toFixed(6)}</dd>
+                            </div>
+                          )}
+                        </dl>
+                        {lastCall && (
+                          <p className="metadata__status">
+                            Last call: {lastCall.model} • {lastCall.input_tokens + lastCall.output_tokens} tokens •{' '}
+                            {lastCall.latency_ms.toFixed(0)} ms
+                          </p>
                         )}
-                      </dl>
-                      {lastCall && (
-                        <p className="metadata__status">
-                          Last call: {lastCall.model} • {lastCall.input_tokens + lastCall.output_tokens} tokens •{' '}
-                          {lastCall.latency_ms.toFixed(0)} ms
-                        </p>
-                      )}
-                    </details>
-                  )}
-
-                  {hasReviewNotes && (
-                    <details className="accordion" open>
-                      <summary>Review Notes</summary>
-                      <pre className="draft__notes">{JSON.stringify(result.review_notes, null, 2)}</pre>
-                    </details>
+                      </details>
+                    </aside>
                   )}
                 </div>
               )}
@@ -645,42 +721,65 @@ function App() {
           )}
         </section>
 
-        <section className="panel panel--history">
-          <h2>Draft History</h2>
+      </main>
+
+      {showHistory ? (
+        <section className="panel panel--history panel--wide">
+          <div className="panel__heading">
+            <h2>Draft History</h2>
+            <button
+              className="history__toggle button button--secondary"
+              type="button"
+              onClick={() => setShowHistory(false)}
+            >
+              Hide
+            </button>
+          </div>
           {historyLoading ? (
             <p className="status">Loading history…</p>
           ) : history.length === 0 ? (
             <p className="placeholder">No drafts saved yet.</p>
           ) : (
             <div className="history__list">
-              {history.map((entry, index) => (
-                <details key={entry.timestamp ?? index} className="history__item">
-                  <summary>
-                    <span>Draft {index + 1}</span>
-                    {entry.timestamp && (
-                      <span className="history__timestamp">{entry.timestamp}</span>
-                    )}
-                  </summary>
-                  <div className="history__content">
-                    <pre>{entry.draft}</pre>
-                    {entry.metadata && (
-                      <dl>
-                        {Object.entries(entry.metadata).map(([key, value]) => (
-                          <div key={key} className="metadata__item">
-                            <dt>{key}</dt>
-                            <dd>{formatMetadataValue(value)}</dd>
-                          </div>
-                        ))}
-                      </dl>
-                    )}
-                  </div>
-                </details>
-              ))}
+              {history.map((entry, index) => {
+                const subjectCandidate = entry.metadata?.['subject']
+                const summarySource =
+                  typeof subjectCandidate === 'string' && subjectCandidate.trim().length > 0
+                    ? subjectCandidate
+                    : entry.draft
+                const summary = formatDraftSummary(summarySource)
+                const timestamp = formatTimestamp(entry.timestamp)
+                return (
+                  <details key={entry.timestamp ?? index} className="history__item">
+                    <summary>
+                      <span>{summary}</span>
+                      {timestamp && <span className="history__timestamp">{timestamp}</span>}
+                    </summary>
+                    <div className="history__content">
+                      <pre>{entry.draft}</pre>
+                      {entry.metadata && (
+                        <dl>
+                          {Object.entries(entry.metadata).map(([key, value]) => (
+                            <div key={key} className="metadata__item">
+                              <dt>{key}</dt>
+                              <dd>{formatMetadataValue(value)}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      )}
+                    </div>
+                  </details>
+                )
+              })}
             </div>
           )}
           {historyError && <p className="form__error">{historyError}</p>}
         </section>
-      </main>
+      ) : (
+        <button className="history__expand" type="button" onClick={() => setShowHistory(true)}>
+          Show History
+        </button>
+      )}
     </div>
   )
 }

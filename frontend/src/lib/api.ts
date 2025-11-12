@@ -7,6 +7,7 @@ export interface EmailGenerateRequest {
   length_preference?: number
   save_to_history?: boolean
   use_stub?: boolean
+  reset_context?: boolean
 }
 
 export interface MetricsSummary {
@@ -38,6 +39,7 @@ export interface EmailGenerateResponse {
   review_notes: Record<string, unknown>
   saved: boolean
   metrics: MetricsSummary
+  context_mode: string
 }
 
 export interface OAuthStartResponse {
