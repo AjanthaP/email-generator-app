@@ -24,7 +24,7 @@ class RouterAgent:
     handle failures and always provide a usable output.
     
     Example:
-        >>> llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp")
+        >>> llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
         >>> router = RouterAgent(llm)
         >>> next_step = router.route_next_step(state)
     """

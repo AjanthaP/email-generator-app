@@ -29,7 +29,7 @@ class DraftWriterAgent:
     - information_request: Information/help request emails
     
     Example:
-        >>> llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp")
+        >>> llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
         >>> writer = DraftWriterAgent(llm)
         >>> draft = writer.write("outreach", parsed_data, "formal")
     """
@@ -61,8 +61,8 @@ class DraftWriterAgent:
         return """
         Write a professional outreach email with this structure:
         
-        1. Personalized opening (reference recipient's work/company)
-        2. Brief self-introduction
+        1. Personalized opening (reference recipient's work/company if known)
+        2. Brief self-introduction (keep generic if name/company not provided)
         3. Clear value proposition
         4. Specific ask or next step
         5. Professional closing
@@ -71,6 +71,10 @@ class DraftWriterAgent:
         Purpose: {purpose}
         Key Points: {key_points}
         Tone: {tone}
+        
+        IMPORTANT: Do NOT use placeholder brackets like [Your Name], [Company Name], [Your Field], etc.
+        If information is not provided, write naturally without placeholders.
+        The email will be personalized later with user-specific details.
         
         Make it concise (150-200 words), engaging, and action-oriented.
         """
@@ -166,6 +170,10 @@ class DraftWriterAgent:
         Purpose: {purpose}
         Key Points: {key_points}
         Tone: {tone}
+        
+        IMPORTANT: Do NOT use placeholder brackets like [Your Name], [Company Name], [Your Field], etc.
+        If information is not provided, write naturally without placeholders.
+        The email will be personalized later with user-specific details.
         
         Be clear and respectful (150-200 words).
         """

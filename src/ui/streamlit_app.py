@@ -10,6 +10,8 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 from src.workflow.langgraph_flow import execute_workflow
+from src.utils.metrics import metrics
+from src.utils.config import settings
 from src.memory.memory_manager import MemoryManager
 
 
@@ -34,6 +36,41 @@ def main():
     st.sidebar.header("⚙️ Configuration")
 
     user_id = st.sidebar.text_input("User ID", value="default", help="Your unique identifier")
+    
+    # Initialize memory manager early to access profiles
+    memory = MemoryManager()
+    
+    # Profile editor in expandable section
+    with st.sidebar.expander("👤 Edit User Profile", expanded=False):
+        from src.agents.personalization import PersonalizationAgent
+        personalizer = PersonalizationAgent(llm=None)  # Just for profile access
+        
+        current_profile = personalizer.get_profile(user_id)
+        
+        profile_name = st.text_input("Your Name", value=current_profile.get("user_name", ""), key="profile_name")
+        profile_title = st.text_input("Your Title", value=current_profile.get("user_title", ""), key="profile_title")
+        profile_company = st.text_input("Your Company", value=current_profile.get("user_company", ""), key="profile_company")
+        
+        if st.button("💾 Save Profile", key="save_profile"):
+            updated_profile = current_profile.copy()
+            updated_profile["user_name"] = profile_name
+            updated_profile["user_title"] = profile_title
+            updated_profile["user_company"] = profile_company
+            
+            # Update signature based on provided info
+            sig_parts = ["\n\nBest regards"]
+            if profile_name:
+                sig_parts.append(profile_name)
+            if profile_title and profile_company:
+                sig_parts.append(f"{profile_title}, {profile_company}")
+            elif profile_title:
+                sig_parts.append(profile_title)
+            elif profile_company:
+                sig_parts.append(profile_company)
+            updated_profile["signature"] = "\n".join(sig_parts)
+            
+            personalizer.save_profile(user_id, updated_profile)
+            st.success(f"✅ Profile saved for user '{user_id}'")
 
     tone = st.sidebar.selectbox(
         "Email Tone",
@@ -53,20 +90,50 @@ def main():
             "You can also set the DONOTUSEGEMINI env var or run with -donotusegemini."
         ),
     )
-
-    # Initialize memory manager
-    memory = MemoryManager()
+    
+    # Clear context button
+    if st.sidebar.button("🔄 Clear Context / Start Fresh", help="Clear all session data and start a new email"):
+        # Clear all session state related to email generation
+        keys_to_clear = [
+            "last_draft", 
+            "last_metadata", 
+            "last_review_notes", 
+            "compose_prompt",
+            "compose_recipient",
+            "compose_recipient_email",
+            "template_tone"
+        ]
+        for key in keys_to_clear:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.success("✅ Context cleared! Ready for a fresh email.")
+        st.rerun()
 
     # Tabs: Compose / Templates / History
     tab1, tab2, tab3 = st.tabs(["✍️ Compose", "📝 Templates", "📚 History"]) 
 
     # --- Compose Tab ---
     with tab1:
+        # Context status indicator
+        has_context = "last_draft" in st.session_state
+        if has_context:
+            st.info("📝 **Context Active** — Previous email data is loaded. Click 'Clear Context' in sidebar to start fresh.", icon="ℹ️")
+        else:
+            st.success("✨ **Fresh Start** — No previous context. Ready to compose a new email.", icon="✅")
+        
         col1, col2 = st.columns([2, 1])
 
         with col1:
+            # Pre-populate from template or history if requested
+            default_prompt = ""
+            if "template_prompt" in st.session_state:
+                default_prompt = st.session_state.pop("template_prompt")
+            elif "reuse_prompt" in st.session_state:
+                default_prompt = st.session_state.pop("reuse_prompt")
+            
             user_prompt = st.text_area(
                 "Describe your email:",
+                value=default_prompt,
                 placeholder=(
                     "Example: Write a follow-up email to John Smith from TechCorp thanking him for yesterday's meeting "
                     "and proposing next steps for our collaboration..."
@@ -99,7 +166,7 @@ def main():
                         full_prompt = f"Recipient: {recipient}\nRecipient Email: {recipient_email}\nLength preference: {length_pref}\n\n{full_prompt}"
 
                     try:
-                        state = execute_workflow(full_prompt, use_stub=use_stub)
+                        state = execute_workflow(full_prompt, use_stub=use_stub, user_id=user_id)
 
                         # Prefer final_draft if present, else draft
                         draft = (
@@ -244,12 +311,10 @@ def main():
                 st.subheader(name)
                 st.write(data["description"])
                 if st.button(f"Use: {name}", key=f"tpl_{idx}"):
-                    # Populate compose prompt and set tone
-                    st.session_state["compose_prompt"] = data["prompt"]
-                    # Change tone selection in sidebar (no direct API to set selectbox, store desired)
-                    # We'll store desired template tone in session for the user to apply
+                    # Store template data to be loaded on next rerun
+                    st.session_state["template_prompt"] = data["prompt"]
                     st.session_state["template_tone"] = data["tone"]
-                    st.experimental_rerun()
+                    st.rerun()
 
     # If a template tone was chosen, show a small banner suggesting the tone
     if st.session_state.get("template_tone"):
@@ -270,8 +335,35 @@ def main():
                     met = draft_entry.get("metadata", {})
                     st.write(met)
                     if st.button(f"Reuse draft #{idx+1}", key=f"reuse_{idx}"):
-                        st.session_state["compose_prompt"] = draft_entry.get("draft", "")
-                        st.experimental_rerun()
+                        st.session_state["reuse_prompt"] = draft_entry.get("draft", "")
+                        st.rerun()
+
+    # --- Observability / Metrics Sidebar Panel ---
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("📊 Session Metrics")
+    summary = metrics.session_summary()
+    colm1, colm2 = st.sidebar.columns(2)
+    colm1.metric("LLM Calls", summary.get("llm_calls", 0))
+    colm2.metric("Successful", summary.get("successful_calls", 0))
+    colm3, colm4 = st.sidebar.columns(2)
+    colm3.metric("Errors", summary.get("errors", 0))
+    colm4.metric("Avg Latency (ms)", summary.get("avg_latency_ms", 0.0))
+    colm5, colm6 = st.sidebar.columns(2)
+    colm5.metric("Input Tokens", summary.get("input_tokens", 0))
+    colm6.metric("Output Tokens", summary.get("output_tokens", 0))
+    st.sidebar.metric("Total Tokens", summary.get("total_tokens", 0))
+    if settings.enable_cost_tracking:
+        st.sidebar.metric("Est. Cost (USD)", f"${summary.get('estimated_cost_usd', 0.0):.6f}")
+    tracer_status = "On" if (settings.enable_langsmith and settings.langchain_tracing_v2) else "Off"
+    st.sidebar.caption(
+        f"Tracing: {tracer_status} • Rate Limiter: {'On' if settings.enable_rate_limiter else 'Off'}"
+    )
+    if st.sidebar.button("💾 Flush Metrics to Disk", help="Persist current metrics snapshot to JSON"):
+        path = metrics.flush_to_disk()
+        if path:
+            st.sidebar.success(f"Saved: {path}")
+        else:
+            st.sidebar.warning("Metrics not enabled.")
 
 
 if __name__ == "__main__":

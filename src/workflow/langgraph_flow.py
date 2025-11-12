@@ -13,11 +13,13 @@ from src.agents.personalization import PersonalizationAgent
 from src.agents.review_agent import ReviewAgent
 from src.agents.router import RouterAgent
 from src.utils.llm_wrapper import make_wrapper, LLMWrapper
+from src.utils.observability import activate_langsmith
 
 
 class EmailState(TypedDict, total=False):
     """TypedDict representing the workflow state for an email generation."""
     user_input: str
+    user_id: str
     parsed_data: Dict[str, Any]
     recipient: str
     intent: str
@@ -34,6 +36,8 @@ def _init_llm() -> ChatGoogleGenerativeAI:
     NOTE: This should only be called when we're actually going to use the LLM,
     as instantiation may trigger validation calls to the Gemini API.
     """
+    # Activate tracing once if configured
+    activate_langsmith()
     return ChatGoogleGenerativeAI(
         model=settings.gemini_model,
         google_api_key=settings.gemini_api_key,
@@ -177,11 +181,17 @@ def _generate_stub_state(user_input: str, tone: str = "formal") -> EmailState:
     return state
 
 
-def execute_workflow(user_input: str, llm: Optional[ChatGoogleGenerativeAI] = None, use_stub: Optional[bool] = None) -> EmailState:
+def execute_workflow(user_input: str, llm: Optional[ChatGoogleGenerativeAI] = None, use_stub: Optional[bool] = None, user_id: str = "default") -> EmailState:
     """Execute the email workflow sequentially and return the final state.
 
     If `use_stub` is True, the function will generate a stubbed state without calling the LLMs.
     If `use_stub` is None, it will auto-detect via environment variables or command-line flag.
+    
+    Args:
+        user_input: The user's email request
+        llm: Optional LLM instance to use
+        use_stub: Whether to use stub mode (no LLM calls)
+        user_id: User ID for profile personalization (default: "default")
     """
     if use_stub is None:
         use_stub = _detect_no_gemini_flag()
@@ -198,8 +208,8 @@ def execute_workflow(user_input: str, llm: Optional[ChatGoogleGenerativeAI] = No
     agents = create_agents(llm)
     order = default_graph_order()
 
-    # Initialize state
-    state: EmailState = {"user_input": user_input, "tone": "formal"}
+    # Initialize state with user_id
+    state: EmailState = {"user_input": user_input, "tone": "formal", "user_id": user_id}
 
     # Attach metadata indicating we're attempting to use the LLM by default.
     # If a quota fallback happens later, this will be updated to indicate stub.
@@ -259,7 +269,7 @@ def execute_workflow(user_input: str, llm: Optional[ChatGoogleGenerativeAI] = No
 __all__ = ["EmailState", "execute_workflow", "create_agents", "default_graph_order"]
 
 
-def generate_email(user_input: str, tone: str = "formal", use_stub: Optional[bool] = None) -> Dict[str, Any]:
+def generate_email(user_input: str, tone: str = "formal", use_stub: Optional[bool] = None, user_id: str = "default") -> Dict[str, Any]:
     """Convenience wrapper matching the v2 guide's example signature.
 
     This wraps `execute_workflow` and returns a simplified dict containing
@@ -270,6 +280,7 @@ def generate_email(user_input: str, tone: str = "formal", use_stub: Optional[boo
         user_input: Raw user prompt / description.
         tone: Desired tone (formal, casual, assertive, empathetic, etc.).
         use_stub: Force stub mode (no external LLM calls). If None, autodetect.
+        user_id: User ID for profile personalization (default: "default")
 
     Returns:
         Dict with keys:
@@ -277,7 +288,7 @@ def generate_email(user_input: str, tone: str = "formal", use_stub: Optional[boo
             - metadata: dict (source/model/fallback info)
             - review_notes: optional dict of agent-level errors/fallback reasons
     """
-    state = execute_workflow(user_input, use_stub=use_stub)
+    state = execute_workflow(user_input, use_stub=use_stub, user_id=user_id)
     # Choose best available draft key
     final = state.get("final_draft") or state.get("personalized_draft") or state.get("styled_draft") or state.get("draft") or ""
     return {

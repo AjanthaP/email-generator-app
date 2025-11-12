@@ -38,5 +38,27 @@
       "source": "stub",
       "model": "gemini-2.0-flash-exp"
     }
+  },
+  {
+    "draft": "Dear Recipient,\n\nWrite a thank you email to my manager Jessica for her mentorship during my first quarter at the company. Mention specifi.\n\n\u2022 Write a thank you email to my manager Jessica for her mentorship during my first quarter at the company. Mention specifi\n\nI look forward to hearing from you.\n\nBest regards",
+    "metadata": {
+      "intent": "thank_you",
+      "recipient": "Recipient",
+      "recipient_email": "",
+      "tone": "formal",
+      "source": "stub",
+      "model": "gemini-2.0-flash-exp"
+    }
+  },
+  {
+    "draft": "Dear Recipient,\n\nWrite a follow-up email to John Smith from TechCorp thanking him for yesterday's meeting and proposing next steps for ou.\n\n\u2022 Write a follow-up email to John Smith from TechCorp thanking him for yesterday's meeting and proposing next steps for ou\n\nI look forward to hearing from you.\n\nBest regards",
+    "metadata": {
+      "intent": "follow_up",
+      "recipient": "Recipient",
+      "recipient_email": "",
+      "tone": "formal",
+      "source": "stub",
+      "model": "gemini-2.0-flash-exp"
+    }
   }
 ]

@@ -9,7 +9,7 @@ generation: recipient, purpose, key points, tone preference, and constraints.
 from typing import Dict, Any, Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 import json
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
 
@@ -18,12 +18,18 @@ class ParsedInput(BaseModel):
     """Structured output from input parser agent"""
     
     recipient_name: str = Field(description="Name or title of recipient")
-    recipient_email: str = Field(default="", description="Email address if provided")
+    recipient_email: Optional[str] = Field(default="", description="Email address if provided")
     email_purpose: str = Field(description="Main purpose/goal of the email")
-    key_points: list[str] = Field(description="Key points to include")
+    key_points: list[str] = Field(default_factory=list, description="Key points to include")
     tone_preference: str = Field(default="formal", description="Preferred tone")
     constraints: Dict[str, Any] = Field(default_factory=dict, description="Length, formality constraints")
-    context: str = Field(default="", description="Additional context")
+    context: Optional[str] = Field(default="", description="Additional context")
+    
+    @field_validator('recipient_email', 'context', mode='before')
+    @classmethod
+    def none_to_empty_string(cls, v):
+        """Convert None to empty string for optional string fields."""
+        return v if v is not None else ""
 
 
 class InputParserAgent:
@@ -39,7 +45,7 @@ class InputParserAgent:
     - Background context
     
     Example:
-        >>> llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp")
+        >>> llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
         >>> parser = InputParserAgent(llm)
         >>> result = parser.parse("Write an outreach email to John at TechCorp...")
         >>> print(result.email_purpose)

@@ -40,7 +40,7 @@ class IntentDetectorAgent:
     - Routing to specialized handlers if needed
     
     Example:
-        >>> llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp")
+        >>> llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
         >>> detector = IntentDetectorAgent(llm)
         >>> intent = detector.detect(parsed_data)
         >>> print(intent)  # "outreach", "follow_up", etc.

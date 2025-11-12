@@ -28,7 +28,7 @@ class PersonalizationAgent:
     and learned personalization patterns from user edits.
     
     Example:
-        >>> llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp")
+        >>> llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
         >>> personalizer = PersonalizationAgent(llm)
         >>> personal_draft = personalizer.personalize(draft, user_id="user123")
     """
@@ -61,13 +61,18 @@ class PersonalizationAgent:
         - Signature: {signature}
         - Writing Style Notes: {style_notes}
         
-        Personalize the email by:
-        1. Adding appropriate signature at the end
-        2. Incorporating user's role/company if relevant to context
-        3. Matching user's preferred writing style
-        4. Keeping the core message intact
+        CRITICAL INSTRUCTIONS for personalization:
+        1. Add the signature at the end
+        2. ONLY use profile fields that have actual values (not empty strings)
+        3. If Name is provided and not empty, use it in the signature and body where appropriate
+        4. If Title is provided and not empty, use it where relevant (e.g., "I am [Title]")
+        5. If Company is provided and not empty, use it where relevant (e.g., "at [Company]")
+        6. NEVER generate placeholder text like "[Your Name]", "[Your Title]", "[Your Company]", or similar brackets
+        7. If a field is empty, simply omit that information - do not create placeholders
+        8. Match the user's preferred writing style
+        9. Keep the core message intact
         
-        Return ONLY the personalized email.
+        Return ONLY the personalized email with NO placeholder brackets.
         """)
     
     def _load_profiles(self) -> Dict:

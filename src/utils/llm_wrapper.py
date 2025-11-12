@@ -30,7 +30,15 @@ from __future__ import annotations
 import re
 import time
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Tuple
+
+from .config import settings
+from .metrics import metrics
+try:
+    # Optional: rate limiter is only used when enabled
+    from .rate_limiter import RateLimiter
+except Exception:  # pragma: no cover - defensive import
+    RateLimiter = None  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +70,19 @@ class LLMWrapper:
         self.initial_backoff = initial_backoff
         self.backoff_factor = backoff_factor
         self.max_backoff = max_backoff
+        # Initialize a rate limiter if feature is enabled and implementation is available
+        self._rate_limiter = None
+        if getattr(settings, "enable_rate_limiter", False) and RateLimiter is not None:
+            try:
+                self._rate_limiter = RateLimiter(
+                    rpm=settings.requests_per_minute,
+                    tpm=settings.tokens_per_minute,
+                    max_concurrency=settings.max_concurrency,
+                    jitter_ms=settings.rate_limiter_jitter_ms,
+                )
+            except Exception:
+                logger.exception("Failed to initialize RateLimiter; proceeding without client-side limits.")
+                self._rate_limiter = None
 
     def _parse_retry_delay(self, exc: Exception) -> Optional[float]:
         """Try to parse a server-suggested retry delay from the exception message.
@@ -185,9 +206,149 @@ class LLMWrapper:
         if not hasattr(chain, "invoke"):
             raise ValueError("Provided chain does not have an 'invoke' method")
 
+        # Token estimate for rate limiter pre-check (best-effort)
+        est_in_tokens = self._estimate_input_tokens(params)
+
+        # Apply client-side rate limiting if configured
+        if self._rate_limiter is not None:
+            self._rate_limiter.acquire(est_in_tokens)
+
         # Wrap bound method call
         bound = chain.invoke
-        return self.run_with_retries(bound, params, **retry_kwargs)
+
+        start = time.time()
+        error_msg: Optional[str] = None
+        try:
+            result = self.run_with_retries(bound, params, **retry_kwargs)
+            return result
+        except Exception as exc:
+            error_msg = str(exc)
+            raise
+        finally:
+            # Always attempt to record metrics after the call (success or error)
+            latency_ms = (time.time() - start) * 1000.0
+            try:
+                if hasattr(chain, "_lc_kwargs") and isinstance(chain._lc_kwargs, dict):  # type: ignore[attr-defined]
+                    model_name = getattr(self.llm, "model", None) or chain._lc_kwargs.get("model") or "unknown"
+                else:
+                    model_name = getattr(self.llm, "model", None) or "unknown"
+
+                in_tok, out_tok = self._extract_token_usage(result if 'result' in locals() else None)
+                # Fallback to estimates when usage not available
+                if in_tok is None:
+                    in_tok = est_in_tokens
+                if out_tok is None:
+                    out_tok = self._estimate_output_tokens(result) if 'result' in locals() else 0
+
+                cost = 0.0
+                if getattr(settings, "enable_cost_tracking", False):
+                    cost = metrics.compute_cost(model_name, in_tok, out_tok)
+
+                metrics.record_call(
+                    model=model_name,
+                    latency_ms=latency_ms,
+                    input_tokens=int(in_tok or 0),
+                    output_tokens=int(out_tok or 0),
+                    cost_usd=float(cost or 0.0),
+                    error=error_msg,
+                )
+            except Exception:
+                # Never fail user flow due to metrics
+                logger.debug("Metrics recording failed", exc_info=True)
+            finally:
+                # Release concurrency slot if limiter is in use
+                try:
+                    if self._rate_limiter is not None:
+                        self._rate_limiter.release()
+                except Exception:
+                    pass
+
+    # ---- Helpers ----
+    def _estimate_input_tokens(self, params: dict) -> int:
+        try:
+            if not params:
+                return 0
+            # Rough heuristic: 1 token ~ 4 chars for English
+            text = " ".join(
+                [str(v) for v in params.values() if isinstance(v, (str, int, float))]
+            )
+            return max(1, int(len(text) / 4))
+        except Exception:
+            return 0
+
+    def _estimate_output_tokens(self, result: Any) -> int:
+        try:
+            content = None
+            if result is None:
+                return 0
+            if hasattr(result, "content"):
+                content = result.content
+            elif isinstance(result, dict) and "content" in result:
+                content = result.get("content")
+            if content is None:
+                return 0
+            return max(1, int(len(str(content)) / 4))
+        except Exception:
+            return 0
+
+    def _extract_token_usage(self, result: Any) -> Tuple[Optional[int], Optional[int]]:
+        """Try to extract token usage from common LangChain/LLM message shapes.
+
+        Returns a tuple (input_tokens, output_tokens), values may be None if not available.
+        """
+        in_tok = out_tok = None
+        try:
+            # Debug: log what we're working with
+            if getattr(settings, "debug", False):
+                logger.debug("Attempting token extraction from result type: %s", type(result).__name__)
+            
+            # LangChain AIMessage often carries response_metadata
+            meta = getattr(result, "response_metadata", None)
+            if isinstance(meta, dict):
+                if getattr(settings, "debug", False):
+                    logger.debug("Found response_metadata: %s", list(meta.keys()))
+                # Check direct fields
+                in_tok = meta.get("input_tokens") or meta.get("prompt_token_count")
+                out_tok = meta.get("output_tokens") or meta.get("candidates_token_count")
+
+            # Some providers put usage under additional_kwargs["usage_metadata"]
+            if in_tok is None or out_tok is None:
+                add = getattr(result, "additional_kwargs", None)
+                if isinstance(add, dict):
+                    if getattr(settings, "debug", False):
+                        logger.debug("Found additional_kwargs: %s", list(add.keys()))
+                    usage = add.get("usage_metadata") or add.get("token_usage")
+                    if isinstance(usage, dict):
+                        if getattr(settings, "debug", False):
+                            logger.debug("Found usage dict: %s", usage)
+                        in_tok = in_tok or usage.get("input_tokens") or usage.get("prompt_tokens")
+                        out_tok = out_tok or usage.get("output_tokens") or usage.get("completion_tokens")
+
+            # Google Generative AI SDK sometimes returns usage inside result.usage_metadata
+            if in_tok is None or out_tok is None:
+                usage_meta = getattr(result, "usage_metadata", None)
+                if isinstance(usage_meta, dict):
+                    if getattr(settings, "debug", False):
+                        logger.debug("Found usage_metadata at top level: %s", usage_meta)
+                    in_tok = in_tok or usage_meta.get("prompt_token_count") or usage_meta.get("input_tokens")
+                    out_tok = out_tok or usage_meta.get("candidates_token_count") or usage_meta.get("output_tokens")
+            
+            if getattr(settings, "debug", False) and (in_tok or out_tok):
+                logger.debug("Extracted tokens: in=%s, out=%s", in_tok, out_tok)
+        except Exception:
+            logger.debug("Token extraction failed", exc_info=True)
+            return None, None
+
+        # Normalize to ints if possible
+        try:
+            if in_tok is not None:
+                in_tok = int(in_tok)
+            if out_tok is not None:
+                out_tok = int(out_tok)
+        except Exception:
+            pass
+
+        return in_tok, out_tok
 
 
 # Simple module-level factory for convenience

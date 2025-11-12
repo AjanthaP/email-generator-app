@@ -32,7 +32,7 @@ class ToneStylistAgent:
     - empathetic: Understanding, supportive, warm
     
     Example:
-        >>> llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash-exp")
+        >>> llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
         >>> stylist = ToneStylistAgent(llm)
         >>> styled = stylist.adjust_tone(draft, "casual")
     """
