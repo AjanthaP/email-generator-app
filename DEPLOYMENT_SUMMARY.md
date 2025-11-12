@@ -184,6 +184,29 @@ Visit: `https://your-app.up.railway.app/docs`
 
 ## 🐛 Troubleshooting
 
+## 🐛 Troubleshooting
+
+### Health Check Failures
+
+If you see "1/1 replicas never became healthy":
+
+**Quick Fixes:**
+1. **Check environment variables** - `GEMINI_API_KEY` and `JWT_SECRET_KEY` must be set
+2. **View Deploy Logs** - Railway Dashboard → Deployments → Deploy Logs
+3. **Test locally first:**
+   ```bash
+   curl http://localhost:8000/health
+   # Should return: {"status":"ok","app_name":"AI Email Generator","version":"1.0.0"}
+   ```
+
+**Recent fixes applied:**
+- ✅ Fixed health check response model (added missing `version` field)
+- ✅ Reduced workers from 4 to 1 (Railway free tier compatibility)
+- ✅ Increased health check timeout to 300s
+- ✅ Enhanced Dockerfile with proper environment variables
+
+**Complete troubleshooting guide:** See [RAILWAY_TROUBLESHOOTING.md](RAILWAY_TROUBLESHOOTING.md)
+
 ### Build Fails
 ```bash
 railway logs --deployment
