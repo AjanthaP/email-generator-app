@@ -85,10 +85,10 @@ class ChromaContextManager:
         
         # Get or create collection
         try:
-            self.collection = self.client.get_collection(collection_name)
+            self.collection = self.client.get_collection(self.collection_name)
         except Exception:
             self.collection = self.client.create_collection(
-                name=collection_name,
+                name=self.collection_name,
                 metadata={"description": "Email generation contexts and history"}
             )
     

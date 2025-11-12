@@ -83,8 +83,8 @@ class GmailService:
         self.credentials = None
         
         # Ensure directories exist
-        os.makedirs(os.path.dirname(credentials_file), exist_ok=True)
-        os.makedirs(os.path.dirname(token_file), exist_ok=True)
+        os.makedirs(os.path.dirname(self.credentials_file), exist_ok=True)
+        os.makedirs(os.path.dirname(self.token_file), exist_ok=True)
     
     def authenticate(self) -> bool:
         """
