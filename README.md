@@ -25,6 +25,26 @@ pip install -r requirements.txt
 streamlit run src/ui/streamlit_app.py
 ```
 
+### Backend API (FastAPI)
+
+We now expose the workflow as a REST API for use with a React (or any web) frontend.
+
+1. Install dependencies (already included in `requirements.txt`).
+2. Launch the API server:
+
+```powershell
+uvicorn src.api.main:app --reload --port 8001
+```
+
+The default CORS settings allow requests from `localhost:5173` and `localhost:3000`, which match the typical Vite and Create React App dev servers.
+
+### React Frontend Roadmap
+
+- Scaffold a React app in `frontend/` (Vite recommended) and configure it to call `http://localhost:8001/api/v1/email/generate`.
+- Implement authentication pages and OAuth redirects using React Router (paths such as `/auth/callback`).
+- Replace Streamlit UI pieces incrementally by reusing the existing API endpoints for prompts, templates, history, and profiles.
+- Once complete, Streamlit can be kept for internal tooling or removed.
+
 ## Files created
 - `src/` — source package
 - `tests/` — test package

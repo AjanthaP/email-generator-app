@@ -1,0 +1,92 @@
+"""Email generation endpoints."""
+from typing import Any, Dict
+
+from fastapi import APIRouter, HTTPException
+from fastapi.concurrency import run_in_threadpool
+
+from src.memory.memory_manager import MemoryManager
+from src.utils.metrics import metrics
+from src.workflow.langgraph_flow import execute_workflow
+from ..schemas import EmailGenerateRequest, EmailGenerateResponse
+
+router = APIRouter()
+
+_memory_manager = MemoryManager()
+
+
+def _prepare_prompt(payload: EmailGenerateRequest) -> str:
+    """Compose the workflow prompt including optional recipient context."""
+    sections = []
+    if payload.recipient:
+        sections.append(f"Recipient: {payload.recipient}")
+    if payload.recipient_email:
+        sections.append(f"Recipient Email: {payload.recipient_email}")
+    if payload.length_preference:
+        sections.append(f"Length preference: {payload.length_preference}")
+    sections.append(payload.prompt)
+    return "\n\n".join(sections)
+
+
+@router.post("/generate", response_model=EmailGenerateResponse)
+async def generate_email(payload: EmailGenerateRequest) -> EmailGenerateResponse:
+    if not payload.prompt.strip():
+        raise HTTPException(status_code=400, detail="Prompt must not be empty")
+
+    full_prompt = _prepare_prompt(payload)
+
+    try:
+        state: Dict[str, Any] = await run_in_threadpool(
+            execute_workflow,
+            full_prompt,
+            use_stub=payload.use_stub,
+            user_id=payload.user_id or "default",
+        )
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        raise HTTPException(status_code=500, detail=f"Workflow error: {exc}") from exc
+
+    draft = (
+        state.get("final_draft")
+        or state.get("personalized_draft")
+        or state.get("styled_draft")
+        or state.get("draft")
+    )
+
+    if not draft:
+        raise HTTPException(status_code=502, detail="Workflow did not return a draft")
+
+    metadata: Dict[str, Any] = state.get("metadata", {})
+    metadata.update(
+        {
+            "intent": state.get("intent"),
+            "tone": state.get("tone", payload.tone),
+            "recipient": state.get("recipient", payload.recipient),
+            "model": metadata.get("model") or metadata.get("fallback_from_model"),
+            "source": metadata.get("source", "llm"),
+        }
+    )
+
+    review_notes = state.get("review_notes", {}) or {}
+    saved = False
+
+    if payload.save_to_history:
+        try:
+            _memory_manager.save_draft(
+                payload.user_id or "default",
+                {"draft": draft, "metadata": metadata},
+            )
+            saved = True
+        except Exception:  # pylint: disable=broad-exception-caught
+            saved = False
+
+    usage_summary = metrics.session_summary()
+    last_call = metrics.last_call()
+    if last_call:
+        usage_summary["last_call"] = last_call
+
+    return EmailGenerateResponse(
+        draft=draft,
+        metadata={k: v for k, v in metadata.items() if v is not None},
+        review_notes=review_notes,
+        saved=saved,
+        metrics=usage_summary,
+    )

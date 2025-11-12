@@ -36,7 +36,7 @@
 ### 2. LLM Integration
 - ✅ ChatGoogleGenerativeAI initialized successfully
 - ✅ API authentication verified (API key accepted)
-- ✅ Model: `gemini-2.0-flash-exp` configured correctly
+- ✅ Model: `gemini-2.0-flash` configured correctly
 - ℹ️ **Note:** Free tier quota exceeded (expected after initial testing)
 
 ### 3. All 7 Core Agents

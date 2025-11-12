@@ -87,6 +87,22 @@ class MetricsManager:
             "cost_tracking_enabled": bool(settings.enable_cost_tracking),
         }
 
+    def last_call(self) -> Optional[Dict]:
+        """Return the most recent call metrics for quick UI display."""
+        with _lock:
+            if not self._calls:
+                return None
+            record = self._calls[-1]
+        return {
+            "model": record.model,
+            "latency_ms": record.latency_ms,
+            "input_tokens": record.input_tokens,
+            "output_tokens": record.output_tokens,
+            "cost_usd": record.cost_usd,
+            "error": record.error,
+            "timestamp": record.timestamp,
+        }
+
     def compute_cost(self, model: str, input_tokens: int, output_tokens: int) -> float:
         pricing = pricing_for_model(model)
         # Convert per-million pricing to per token cost

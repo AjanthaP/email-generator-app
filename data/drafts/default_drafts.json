@@ -80,7 +80,7 @@
       "recipient_email": "",
       "tone": "formal",
       "source": "stub",
-      "model": "gemini-2.0-flash-exp"
+      "model": "gemini-2.0-flash"
     }
   },
   {
@@ -158,6 +158,71 @@
       "tone": "formal",
       "source": "llm",
       "model": null
+    }
+  },
+  {
+    "draft": "Subject: Formal Inquiry Regarding Recurring Power Interruptions in [Area Name], Bengaluru\n\nDear Sir/Madam,\n\nI am writing to formally express my concern regarding the frequent and unscheduled power interruptions currently affecting the [Area Name] area, situated near [Suburb Name] in Bengaluru. As an SWE at Google, I am finding these interruptions significantly disruptive.\n\nThroughout the preceding [Number] weeks/months, the aforementioned area has experienced recurring power outages, frequently lasting for durations of [Duration]. These interruptions are occurring on multiple occasions per week and at irregular intervals throughout both daytime and nighttime hours.\n\nThese frequent outages are significantly impacting both residential and commercial activities within the affected area. They disrupt daily routines for residents, impede productivity for those engaged in remote work, and pose a potential risk of damage to sensitive electronic equipment. Furthermore, businesses are experiencing lost revenue and operational inefficiencies as a direct consequence of these interruptions.\n\nIn order to mitigate these adverse effects, I respectfully request that the Electric Board undertake a thorough investigation into the underlying cause of these recurring power interruptions and subsequently implement appropriate measures to ensure a more stable and reliable power supply to the [Area Name] area. Specifically, I would appreciate receiving an update detailing the findings of your investigation, in addition to a projected timeline for any planned corrective actions.\n\nI can be reached at [Your Phone Number] or [Your Email Address] should you require any further information or assistance in this matter. I anticipate your prompt attention to this important issue.\n\nSincerely,\n\nAjantha\n[Your Address - Optional]\n\nBest regards\nAjantha\nSWE, Google",
+    "metadata": {
+      "approved": true,
+      "issues": [],
+      "improved": false,
+      "intent": "complaint",
+      "tone": "formal",
+      "recipient": "Electric Board",
+      "model": null,
+      "source": "llm"
+    }
+  },
+  {
+    "draft": "Subject: Formal Complaint Regarding Unscheduled Power Outages - [Area Name], Near Bengaluru\n\nDear Sir/Madam,\n\nI am writing to formally express my concern regarding the recurring and unscheduled power outages currently affecting the [Area Name] area, situated near Bengaluru. These disruptions have persisted for the past [Number] weeks/months.\n\nThese power interruptions, which typically extend for a duration of [Duration] and occur with a frequency of [Frequency - e.g., multiple times a day, several times a week], are causing considerable inconvenience to residents and disrupting daily activities. Specifically, residents are encountering difficulties with [Specific examples: working remotely, academic pursuits, routine household tasks, operation of security systems]. Furthermore, these interruptions give rise to concerns regarding potential damage to electrical equipment as a result of voltage variations.\n\nTherefore, I respectfully request that the Electricity Board conduct a thorough investigation into the cause of these frequent power outages and subsequently implement appropriate measures to ensure a more consistent and dependable power supply for the aforementioned area. We would be grateful for a definitive timeline outlining the anticipated improvements.\n\nPlease do not hesitate to contact me at [Your Phone Number] or [Your Email Address] should you require any additional information. We anticipate a prompt and favorable response to this communication.\n\nSincerely,\n\nAjantha\n[Your Address - Optional]\n\nBest regards\nAjantha\nSWE, Google",
+    "metadata": {
+      "approved": true,
+      "issues": [],
+      "improved": false,
+      "intent": "complaint",
+      "tone": "formal",
+      "recipient": "Electricity Board of Karnataka",
+      "model": null,
+      "source": "llm"
+    }
+  },
+  {
+    "draft": "Subject: Follow-Up Inquiry: Power Interruption\n\nDear Sir/Madam,\n\nI am writing to follow up regarding my previous correspondence pertaining to the power interruption experienced earlier today.\n\nAs a point of reference, this interruption is affecting our offices. We acknowledge that power interruptions can be significantly disruptive, and we express our gratitude for your ongoing efforts to rectify the situation.\n\nWe respectfully request an update concerning the status of the repairs. If available, could you furnish an estimated time of resolution? This information would enable us to better facilitate our operational planning.\n\nThank you for your continued time and attention to this matter. We anticipate receiving your response at your earliest convenience.\n\nSincerely,\n\nAjantha\nSWE, Google\nBest regards\nAjantha\nSWE, Google",
+    "metadata": {
+      "approved": true,
+      "issues": [],
+      "improved": false,
+      "intent": "follow_up",
+      "tone": "formal",
+      "recipient": "Unknown",
+      "model": null,
+      "source": "llm"
+    }
+  },
+  {
+    "draft": "Subject: Follow-up Regarding Power Outage at [Location - if applicable, otherwise remove]\n\nDear Sir/Madam,\n\nI trust this communication finds you well.\n\nI am writing to follow up on my previous correspondence pertaining to the power outage experienced on [Date of previous email or date of power cut]. As a point of reference, I previously articulated concerns regarding [briefly mention 1-2 key concerns, e.g., potential damage to equipment, disruption to services].\n\nWe recognize that such matters can be intricate, and I wished to inquire as to the current status of the aforementioned situation and whether any demonstrable progress has been achieved toward rectifying the power disruption. We would also be grateful for any information you are able to furnish regarding anticipated restoration timelines.\n\nThank you for your time and diligent attention to this matter. We value your assistance and anticipate your forthcoming update.\n\nSincerely,\n\nBest regards\nAjantha\nSWE, Google",
+    "metadata": {
+      "approved": true,
+      "issues": [],
+      "improved": false,
+      "intent": "follow_up",
+      "tone": "formal",
+      "recipient": "Unknown",
+      "model": null,
+      "source": "llm"
+    }
+  },
+  {
+    "draft": "Subject: Follow-up: Power Outage [Location, if applicable - e.g., 123 Main Street]\n\nDear Sir/Madam,\n\nI am writing to follow up on my previous correspondence regarding the power outage affecting [Location, if applicable - e.g., the residents of 123 Main Street / the general area]. I would appreciate an update on the current status of the situation and any estimated timeframe for the restoration of power.\n\nWe recognize the inherent complexities involved in addressing such incidents and would be grateful for any information you are able to share at this time.\n\nShould it prove beneficial to your team's efforts, we are prepared to provide pertinent data that we have compiled concerning the impact of the outage on [Residents/Businesses/Area, if applicable]. Kindly advise if access to this information would be of assistance.\n\nI respectfully request a concise update on this matter at your earliest convenience. Thank you for your attention to this important issue.\n\nSincerely,\n\nAjantha, SWE at Google\n\nBest regards\nAjantha\nSWE, Google",
+    "metadata": {
+      "approved": true,
+      "issues": [],
+      "improved": false,
+      "intent": "follow_up",
+      "tone": "formal",
+      "recipient": "Unknown",
+      "model": null,
+      "source": "llm"
     }
   }
 ]

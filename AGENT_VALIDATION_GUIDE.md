@@ -41,7 +41,7 @@ TOTAL: 10/10 TESTS PASSED ✅
 ```
 ✅ App Name: AI Email Assistant
 ✅ Debug: True
-✅ Model: gemini-2.0-flash-exp
+✅ Model: gemini-2.0-flash
 ✅ API Key present: Yes
 ✅ Temperature: 0.7
 ✅ Max Tokens: 1000
@@ -308,7 +308,7 @@ Use this checklist to validate your agents:
 ### Configuration
 - [x] `.env` file exists
 - [x] `GEMINI_API_KEY` is set
-- [x] `GEMINI_MODEL` is set to `gemini-2.0-flash-exp`
+- [x] `GEMINI_MODEL` is set to `gemini-2.0-flash`
 - [x] `src/utils/config.py` loads settings correctly
 - [x] Pydantic BaseSettings working
 
