@@ -207,7 +207,31 @@ return HealthCheckResponse(
 "startCommand": "uvicorn src.api.main:app --host 0.0.0.0 --port $PORT"
 ```
 
-### Fix 3: Increased Health Check Timeout ✅
+### Fix 3: Fixed Python Module Path ✅
+**Issue:** Railway couldn't find `src.api.main` module.
+
+**Root Cause:** Python wasn't looking in the correct directory for modules.
+
+**Solutions Applied:**
+
+1. **Added PYTHONPATH to Dockerfile:**
+```dockerfile
+ENV PYTHONPATH=/app
+```
+
+2. **Updated start command to use `python -m`:**
+```json
+"startCommand": "cd /app && python -m uvicorn src.api.main:app --host 0.0.0.0 --port $PORT"
+```
+
+3. **Updated Dockerfile CMD:**
+```dockerfile
+CMD ["python", "-m", "uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+Using `python -m uvicorn` instead of just `uvicorn` ensures Python uses the correct module resolution.
+
+### Fix 4: Increased Health Check Timeout ✅
 **Issue:** 100s might be too short for cold start.
 
 **Before:**
