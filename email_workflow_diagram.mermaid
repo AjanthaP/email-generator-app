@@ -1,0 +1,44 @@
+graph TD
+    Start([User Input]) --> InputParser[Input Parser Agent]
+    
+    InputParser --> |Structured Data| IntentDetector[Intent Detector Agent]
+    
+    IntentDetector --> |Intent Classification| Router{Router Agent}
+    
+    Router --> |Outreach| DraftWriter1[Draft Writer Agent - Outreach]
+    Router --> |Follow-up| DraftWriter2[Draft Writer Agent - Follow-up]
+    Router --> |Thank You| DraftWriter3[Draft Writer Agent - Thank You]
+    Router --> |Meeting| DraftWriter4[Draft Writer Agent - Meeting]
+    Router --> |Apology| DraftWriter5[Draft Writer Agent - Apology]
+    Router --> |Info Request| DraftWriter6[Draft Writer Agent - Info Request]
+    
+    DraftWriter1 --> ToneStylist[Tone Stylist Agent]
+    DraftWriter2 --> ToneStylist
+    DraftWriter3 --> ToneStylist
+    DraftWriter4 --> ToneStylist
+    DraftWriter5 --> ToneStylist
+    DraftWriter6 --> ToneStylist
+    
+    ToneStylist --> |Tone Applied| Personalization[Personalization Agent]
+    
+    Personalization --> |User Profile Added| Review[Review Agent]
+    
+    Review --> QualityCheck{Quality Check}
+    
+    QualityCheck --> |Pass| FinalOutput([Final Email Draft])
+    QualityCheck --> |Needs Improvement| Improve[Improvement Loop]
+    
+    Improve --> ToneStylist
+    
+    QualityCheck --> |API Error| Fallback[Fallback Handler]
+    Fallback --> |Template| FinalOutput
+    
+    Memory[(Memory System)] -.-> |Load Profile| Personalization
+    Memory -.-> |Save History| FinalOutput
+    Memory -.-> |Learning| Review
+    
+    style Start fill:#e1f5ff
+    style FinalOutput fill:#c8e6c9
+    style Router fill:#fff9c4
+    style Memory fill:#f3e5f5
+    style Fallback fill:#ffccbc

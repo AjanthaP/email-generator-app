@@ -1,0 +1,16 @@
+[
+  {
+    "draft": "Subject: Formal Request for Sick Leave\n\nDear Mr. Terry,\n\nI trust this communication finds you in good health.\n\nI am submitting this correspondence to formally request a leave of absence from my professional obligations due to a medical condition. My request is for a period of one week, commencing on [START DATE] and concluding on [END DATE].\n\nDuring this period, I will be prioritizing my recuperation and, consequently, will have restricted access to electronic mail. I shall endeavor to finalize pressing assignments prior to the commencement of my leave. As SWE at Google, I am directing this request to you, my immediate supervisor, to ensure appropriate documentation and to facilitate arrangements for the management of my responsibilities during my absence. Kindly advise as to the requisite documentation or procedures necessary to formally process this request for sick leave.\n\nThank you for your understanding and consideration in this matter. I appreciate your attention to this request.\n\nBest regards,\nAjantha\nSWE, Google",
+    "metadata": {
+      "approved": true,
+      "issues": [],
+      "improved": false,
+      "intent": "information_request",
+      "tone": "formal",
+      "recipient": "Terry",
+      "model": null,
+      "source": "llm",
+      "context_mode": "fresh"
+    }
+  }
+]

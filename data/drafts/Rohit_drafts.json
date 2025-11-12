@@ -1,0 +1,16 @@
+[
+  {
+    "draft": "Subject: Performance Review - [Associate's Name]\n\nDear Ms. Jan,\n\nI trust this communication finds you in good health. I am writing to you today to address certain concerns pertaining to the recent performance of [Associate's Name], with the objective of ensuring that individual receives the requisite support and resources necessary for professional development.\n\nSpecifically, observations indicate that [Associate's Name]'s performance has not met expectations in the following areas: [Clearly list 2-3 specific examples, e.g., failure to meet established deadlines for project X, consistent lack of punctuality at scheduled team meetings, failure to attain sales targets for Q3].\n\nThis underperformance is impacting [Clearly explain the impact, e.g., the team's collective productivity, client satisfaction levels, or project timelines]. It is imperative that these issues are addressed expeditiously in order to mitigate any further adverse consequences.\n\nTo facilitate the improvement of [Associate's Name]'s performance, I recommend the following actions: [Suggest specific actions, e.g., the development of a performance improvement plan with measurable and attainable goals, the provision of additional training on [specific skill], the assignment of a designated mentor].\n\nDemonstrable improvement in these areas is expected within the next [Number] weeks. Please contact me no later than [Date] to discuss a comprehensive plan of action. I may be reached at [Your Phone Number]. I am confident that, with dedicated effort and appropriate support, [Associate's Name] will be able to meet the established expectations.\n\nSincerely,\n\nUser\n\nBest regards",
+    "metadata": {
+      "approved": true,
+      "issues": [],
+      "improved": false,
+      "intent": "complaint",
+      "tone": "formal",
+      "recipient": "Jan",
+      "model": null,
+      "source": "llm",
+      "context_mode": "fresh"
+    }
+  }
+]
