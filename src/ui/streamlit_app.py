@@ -13,6 +13,7 @@ from src.workflow.langgraph_flow import execute_workflow
 from src.utils.metrics import metrics
 from src.utils.config import settings
 from src.memory.memory_manager import MemoryManager
+from src.auth.oauth_providers import create_oauth_manager
 
 
 def main():
@@ -32,6 +33,34 @@ def main():
     st.title("✉️ AI Email Assistant")
     st.markdown("Generate professional, personalized emails in seconds")
 
+    # Initialize OAuth (optional)
+    oauth_manager = create_oauth_manager()
+    if "oauth_user" not in st.session_state:
+        st.session_state.oauth_user = None
+    if "oauth_pending_provider" not in st.session_state:
+        st.session_state.oauth_pending_provider = None
+
+    # Handle OAuth callback via query params
+    try:
+        params = st.query_params
+        if oauth_manager and "code" in params and "state" in params:
+            provider_guess = st.session_state.get("oauth_pending_provider")
+            if provider_guess:
+                result = oauth_manager.complete_oauth_flow(
+                    provider_guess,
+                    code=params["code"],
+                    state=params["state"]
+                )
+                if result and result.get("user_info"):
+                    st.session_state.oauth_user = result["user_info"]
+                    st.session_state.oauth_pending_provider = None
+                    # Clear query params after handling
+                    st.query_params.clear()
+                    st.success(f"Signed in with {provider_guess}")
+                    st.rerun()
+    except Exception as e:
+        st.error(f"OAuth callback error: {e}")
+
     # Sidebar
     st.sidebar.header("⚙️ Configuration")
 
@@ -40,6 +69,33 @@ def main():
     # Initialize memory manager early to access profiles
     memory = MemoryManager()
     
+    # Authentication section (OAuth)
+    with st.sidebar.expander("🔐 Sign in", expanded=False):
+        if oauth_manager:
+            if st.session_state.oauth_user:
+                u = st.session_state.oauth_user
+                st.success(f"Signed in: {u.get('email') or u.get('name')}")
+                if st.button("Sign out"):
+                    st.session_state.oauth_user = None
+                    st.session_state.oauth_pending_provider = None
+                    st.query_params()
+                    st.experimental_rerun()
+            else:
+                st.caption("Sign in with an OAuth provider:")
+                cols = st.columns(3)
+                providers = list(getattr(oauth_manager, 'providers', {}).keys())
+                for idx, p in enumerate(providers):
+                    with cols[idx % 3]:
+                        if st.button(f"{p.capitalize()}"):
+                            try:
+                                start = oauth_manager.start_oauth_flow(p, user_id=user_id or "default")
+                                st.session_state.oauth_pending_provider = p
+                                st.markdown(f"[Continue to {p.capitalize()} login]({start['authorization_url']})")
+                            except Exception as e:
+                                st.error(f"Failed to start {p} login: {e}")
+        else:
+            st.caption("OAuth disabled or not configured.")
+
     # Profile editor in expandable section
     with st.sidebar.expander("👤 Edit User Profile", expanded=False):
         from src.agents.personalization import PersonalizationAgent

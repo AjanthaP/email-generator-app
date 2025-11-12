@@ -36,7 +36,7 @@
       "recipient_email": "",
       "tone": "formal",
       "source": "stub",
-      "model": "gemini-2.0-flash-exp"
+      "model": "gemini-2.0-flash"
     }
   },
   {
@@ -47,7 +47,29 @@
       "recipient_email": "",
       "tone": "formal",
       "source": "stub",
-      "model": "gemini-2.0-flash-exp"
+      "model": "gemini-2.0-flash"
+    }
+  },
+  {
+    "draft": "Dear Recipient,\n\nWrite a follow-up email to John Smith from TechCorp thanking him for yesterday's meeting and proposing next steps for ou.\n\n\u2022 Write a follow-up email to John Smith from TechCorp thanking him for yesterday's meeting and proposing next steps for ou\n\nI look forward to hearing from you.\n\nBest regards",
+    "metadata": {
+      "intent": "follow_up",
+      "recipient": "Recipient",
+      "recipient_email": "",
+      "tone": "formal",
+      "source": "stub",
+      "model": "gemini-2.0-flash"
+    }
+  },
+  {
+    "draft": "Dear Recipient,\n\nWrite a follow-up email to John Smith from TechCorp thanking him for yesterday's meeting and proposing next steps for ou.\n\n\u2022 Write a follow-up email to John Smith from TechCorp thanking him for yesterday's meeting and proposing next steps for ou\n\nI look forward to hearing from you.\n\nBest regards",
+    "metadata": {
+      "intent": "follow_up",
+      "recipient": "Recipient",
+      "recipient_email": "",
+      "tone": "formal",
+      "source": "stub",
+      "model": "gemini-2.0-flash"
     }
   },
   {
@@ -59,6 +81,83 @@
       "tone": "formal",
       "source": "stub",
       "model": "gemini-2.0-flash-exp"
+    }
+  },
+  {
+    "draft": "Subject: Best Wishes on Your Birthday, Alex Johnson!\n\nDear Alex Johnson,\n\nI hope this email finds you well. I was impressed to see TechCorp's recent progress on Project Phoenix. The innovative approach to user interface design is particularly noteworthy.\n\nMy name is [Your Name], and I'm [Your Title] at [Your Company]. We specialize in [Briefly describe what your company does - one sentence].\n\nHappy birthday! Leading product development at TechCorp requires significant effort, and your vision is clearly driving results.\n\nWhile today is for celebration, I'd appreciate a brief chat in the coming weeks to explore how [Your Company] could support TechCorp in achieving its goals for [Mention a relevant goal based on your understanding of their company].\n\nWishing you a happy birthday and a successful year.\n\nSincerely,\n\n[Your Name]\n[Your Title]\n[Your Company]\n[Your Contact Information]\n\nBest regards,\nAlex Johnson\nProduct Manager, TechCorp",
+    "metadata": {
+      "intent": "outreach",
+      "recipient": "Recipient",
+      "recipient_email": "",
+      "tone": "formal",
+      "source": "llm",
+      "model": null
+    }
+  },
+  {
+    "draft": "Subject: Q3 Profit Update and Key Performance Highlights\n\nDear CEO,\n\nThis email provides a brief update on TechCorp's profitability through Q3.\n\nWe are on track to meet our profit objectives. As of September 30th, we've achieved [mention specific percentage or dollar amount] of our annual profit target.\n\nKey achievements this quarter include:\n\n*   Successful launch of [New Product/Service Name], exceeding initial sales forecasts by [Percentage]. As Product Manager, I'm particularly proud of the team's work on this.\n*   Implementation of [Cost-Saving Initiative], reducing operational expenses by [Percentage or Dollar Amount].\n*   Expansion into [New Market/Region], contributing [Percentage] to overall revenue growth.\n\nIn Q4, we'll focus on [Specific Initiatives, e.g., increasing market share, optimizing marketing campaigns, streamlining supply chain] and closely monitor [Key Performance Indicators, e.g., customer acquisition cost, churn rate] to meet year-end goals.\n\nPlease let me know if you need further information or would like to schedule a meeting to discuss these updates.\n\nBest regards,\nAlex Johnson\nProduct Manager, TechCorp",
+    "metadata": {
+      "intent": "status_update",
+      "recipient": "Recipient",
+      "recipient_email": "",
+      "tone": "formal",
+      "source": "llm",
+      "model": null
+    }
+  },
+  {
+    "draft": "Subject: Inquiry Regarding Potential Employment Opportunities\n\nDear Ms. Heena,\n\nI trust this communication finds you in good health.\n\nMy name is User, and I am writing to you today to inquire regarding potential employment opportunities. I have been consistently impressed by the endeavors of [Company Name], particularly in the area of [Mention a specific area or project that impresses you], and I am keenly interested in exploring avenues through which I might contribute my skills and experience to your team.\n\nSpecifically, I would be grateful if you could furnish me with information pertaining to any currently available positions, or prospective opportunities that may align with an individual possessing my background in [Your Field/Area of Expertise]. My particular interest lies in roles related to [Specific type of role or area of interest].\n\nI am directing this inquiry to you in light of your recognized understanding of the company's hiring requirements and potential areas of expansion within [Specific Department or Area, if known]. Your insights would be invaluable in informing my job search.\n\nThank you for your time and consideration. I sincerely appreciate you taking the time to review my request.\n\nSincerely,\n\nUser\n[Your Contact Information]\n\nBest regards",
+    "metadata": {
+      "intent": "information_request",
+      "recipient": "Heena",
+      "recipient_email": "",
+      "tone": "formal",
+      "source": "llm",
+      "model": null
+    }
+  },
+  {
+    "draft": "Subject: Inquiry Regarding Potential Opportunities\n\nDear Heera,\n\nI trust this correspondence finds you in good health.\n\nI am writing to formally express my profound interest in potential opportunities within your esteemed organization. As a highly motivated professional with a demonstrable record of achievement and a fervent dedication to contributing to innovative and impactful projects, I believe my qualifications merit your consideration.\n\nMy skills and experience are closely aligned with the nature of the work undertaken by your company. I am confident that I possess the capacity to contribute significant value to your team's endeavors. I am eager to acquire further information regarding the potential application of my expertise to your ongoing success.\n\nWould you be available for a brief introductory telephone conference at your earliest convenience next week? This would provide an opportunity for me to elaborate on my professional background and explore the potential alignment of my capabilities with any current or prospective requirements within your team.\n\nThank you for your time and consideration in this matter. I anticipate your response with considerable interest.\n\nSincerely,\n\nUser\n\nBest regards",
+    "metadata": {
+      "intent": "outreach",
+      "recipient": "Heera",
+      "recipient_email": "Apple",
+      "tone": "formal",
+      "source": "llm",
+      "model": null
+    }
+  },
+  {
+    "draft": "Subject: Inquiry Regarding Job Opportunities at Microsoft\n\nDear Heena,\n\nI trust this communication finds you well.\n\nI am writing to express my interest in potential employment opportunities at Microsoft. I have been consistently impressed by Microsoft's dedication to technological innovation, and I wish to explore possibilities to contribute to the company's continued success. As a SWE at Google, I am particularly interested in roles where I can leverage my experience.\n\nI would be grateful if you could provide information regarding any available positions, particularly those related to software development or data analysis. Furthermore, I am interested in learning more about Microsoft's current hiring practices and preferred qualifications for prospective candidates.\n\nGiven your extensive experience within Microsoft's recruitment department, I believe your insights into available opportunities and the application process would be invaluable. Your guidance would be greatly appreciated as I, Ajantha, navigate this job search.\n\nThank you for considering this request and for your time. I anticipate hearing from you at your convenience.\n\nBest regards\nAjantha\nSWE, Google",
+    "metadata": {
+      "intent": "information_request",
+      "recipient": "Heena",
+      "recipient_email": "Microsoft",
+      "tone": "formal",
+      "source": "llm",
+      "model": null
+    }
+  },
+  {
+    "draft": "Subject: Following Up: [Job Title] at [Company Name]\n\nDear Ms. Heena,\n\nI trust this email finds you in good health.\n\nI am writing to follow up on my previous email of [Date of previous email] concerning the [Job Title] position at [Company Name]. As a point of reference, this role encompasses [brief, one-sentence description of the job].\n\nSubsequent to my last correspondence, we have also incorporated [mention a new perk, benefit, or project related to the role].\n\nWould you be available to participate in a brief, fifteen-minute telephone conversation next week to discuss your qualifications and the role in greater detail? Kindly inform me of your availability at your earliest convenience.\n\nThank you for your time and consideration in this matter.\n\nBest regards\nAjantha\nSWE, Google",
+    "metadata": {
+      "intent": "follow_up",
+      "recipient": "Heena",
+      "recipient_email": "Microsoft",
+      "tone": "formal",
+      "source": "llm",
+      "model": null
+    }
+  },
+  {
+    "draft": "Subject: Inquiry Regarding the Well-being of [Lover's Name]\n\nDear Mr. Merwin,\n\nI trust this communication finds you in good health.\n\nI am writing to you today to express a sincere inquiry concerning the health of [Lover's Name]. Given your recent and close association with them, I am hopeful you might be able to provide some insight into their current condition.\n\nSpecifically, I am interested in ascertaining whether they have experienced any recent health challenges. Are they, in your estimation, feeling well overall? Have they articulated any particular ailments or concerns to you? Any information you could furnish regarding their current physical and mental state would be greatly appreciated.\n\nMy rationale for contacting you, in particular, stems from the understanding that you are a trusted confidant of [Lover's Name], and I therefore value your perspective. It is understood that you may not be at liberty to divulge certain details, a constraint I fully respect. However, any information you are able to offer, however insignificant it may seem, would be a considerable comfort.\n\nThank you for considering this request and for your valuable time. Your assistance is genuinely appreciated.\n\nSincerely,\n\nAjantha\nSWE, Google\n\nBest regards\nAjantha\nSWE, Google",
+    "metadata": {
+      "intent": "information_request",
+      "recipient": "Merwin",
+      "recipient_email": "",
+      "tone": "formal",
+      "source": "llm",
+      "model": null
     }
   }
 ]

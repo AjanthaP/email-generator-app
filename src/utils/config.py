@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from typing import Optional
+from typing import Optional, List
 
 class Settings(BaseSettings):
     # API Configuration
@@ -40,6 +40,121 @@ class Settings(BaseSettings):
     # Metrics persistence
     metrics_output_dir: str = "data/metrics"
     metrics_flush_interval: int = 60  # seconds between auto flush (if implemented later)
+
+    # === INFRASTRUCTURE CONFIGURATION ===
+    
+    # Redis Cache Configuration
+    enable_redis: bool = True
+    redis_url: str = "redis://localhost:6379"
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_db: int = 0
+    redis_password: Optional[str] = None
+    redis_ssl: bool = False
+    redis_decode_responses: bool = True
+    redis_max_connections: int = 20
+    redis_socket_timeout: int = 5
+    redis_socket_connect_timeout: int = 5
+    redis_retry_on_timeout: bool = True
+    redis_health_check_interval: int = 30
+    
+    # Redis Cache TTL Settings (in seconds)
+    redis_session_ttl: int = 86400  # 24 hours
+    redis_profile_ttl: int = 3600   # 1 hour  
+    redis_draft_ttl: int = 7200     # 2 hours
+    redis_llm_response_ttl: int = 1800  # 30 minutes
+    redis_rate_limit_ttl: int = 60   # 1 minute
+    redis_metrics_ttl: int = 604800  # 1 week
+
+    # ChromaDB Configuration
+    enable_chromadb: bool = True
+    chromadb_persist_dir: str = "data/chromadb"
+    chromadb_collection_name: str = "email_contexts"
+    chromadb_allow_reset: bool = False
+    chromadb_anonymized_telemetry: bool = False
+    chromadb_host: str = "localhost"
+    chromadb_port: int = 8000
+    chromadb_use_server: bool = False  # True for server mode, False for persistent local
+    
+    # MongoDB Configuration (alternative to local storage)
+    enable_mongodb: bool = False
+    mongodb_connection_string: Optional[str] = None
+    mongodb_database: str = "email_generator"
+    mongodb_users_collection: str = "users"
+    mongodb_sessions_collection: str = "sessions"
+    mongodb_profiles_collection: str = "user_profiles"
+    mongodb_drafts_collection: str = "drafts"
+    mongodb_contexts_collection: str = "email_contexts"
+    
+    # Gmail Integration Configuration
+    enable_gmail: bool = True
+    gmail_credentials_file: str = "config/gmail_credentials.json"
+    gmail_token_file: str = "data/gmail_token.pickle"
+    gmail_scopes: List[str] = [
+        'https://www.googleapis.com/auth/gmail.send',
+        'https://www.googleapis.com/auth/gmail.modify',
+        'https://www.googleapis.com/auth/gmail.readonly'
+    ]
+    
+    # OAuth Configuration
+    enable_oauth: bool = True
+    oauth_config_file: str = "config/oauth_config.json"
+    
+    # Google OAuth Settings
+    google_client_id: Optional[str] = None
+    google_client_secret: Optional[str] = None
+    google_redirect_uri: str = "http://localhost:8501/oauth/callback"
+    google_oauth_scopes: List[str] = [
+        'openid', 'email', 'profile',
+        'https://www.googleapis.com/auth/gmail.send',
+        'https://www.googleapis.com/auth/gmail.modify'
+    ]
+    
+    # GitHub OAuth Settings
+    github_client_id: Optional[str] = None
+    github_client_secret: Optional[str] = None
+    github_redirect_uri: str = "http://localhost:8501/oauth/github/callback"
+    github_oauth_scopes: List[str] = ['user:email', 'read:user']
+    
+    # Microsoft OAuth Settings
+    microsoft_client_id: Optional[str] = None
+    microsoft_client_secret: Optional[str] = None
+    microsoft_redirect_uri: str = "http://localhost:8501/oauth/microsoft/callback"
+    microsoft_tenant: str = "common"
+    microsoft_oauth_scopes: List[str] = [
+        'openid', 'profile', 'email',
+        'https://graph.microsoft.com/Mail.Send',
+        'https://graph.microsoft.com/Mail.ReadWrite'
+    ]
+    
+    # MCP (Model Context Protocol) Configuration
+    enable_mcp: bool = True
+    mcp_server_name: str = "email-generator-mcp-server"
+    mcp_server_version: str = "1.0.0"
+    mcp_server_description: str = "MCP server for AI-powered email generation"
+    
+    # Authentication Configuration
+    enable_auth: bool = True
+    auth_users_file: str = "data/users.json"
+    auth_sessions_file: str = "data/sessions.json"
+    auth_session_ttl: int = 86400  # 24 hours
+    auth_max_sessions_per_user: int = 5
+    auth_password_min_length: int = 8
+    auth_require_email_verification: bool = False
+    
+    # Security Settings
+    jwt_secret_key: Optional[str] = None  # Will be auto-generated if not set
+    cors_origins: List[str] = ["http://localhost:8501", "http://127.0.0.1:8501"]
+    allowed_hosts: List[str] = ["localhost", "127.0.0.1"]
+    
+    # Feature Toggles
+    disable_redis: bool = False
+    disable_chromadb: bool = False
+    disable_mongodb: bool = False
+    disable_gmail: bool = False
+    disable_oauth: bool = False
+    disable_mcp: bool = False
+    disable_auth: bool = False
     
     class Config:
         env_file = ".env"

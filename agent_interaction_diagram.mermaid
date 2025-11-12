@@ -1,0 +1,73 @@
+sequenceDiagram
+    participant User
+    participant UI as Streamlit UI
+    participant WF as LangGraph Workflow
+    participant IP as Input Parser
+    participant ID as Intent Detector
+    participant DW as Draft Writer
+    participant TS as Tone Stylist
+    participant PA as Personalization Agent
+    participant RA as Review Agent
+    participant Router as Router Agent
+    participant Mem as Memory Manager
+    
+    User->>UI: Enter email request + tone
+    UI->>WF: invoke(user_input, tone)
+    
+    WF->>IP: parse(user_input)
+    IP->>IP: Extract recipient, purpose, key points
+    IP-->>WF: parsed_data
+    
+    WF->>ID: detect_intent(parsed_data)
+    ID->>ID: Classify intent (outreach/follow-up/etc)
+    ID-->>WF: intent
+    
+    WF->>Router: route(intent)
+    Router-->>WF: selected_agent
+    
+    WF->>DW: write_draft(intent, parsed_data, tone)
+    DW->>DW: Use intent-specific template
+    DW->>DW: Generate draft content
+    DW-->>WF: draft
+    
+    WF->>TS: adjust_tone(draft, tone)
+    TS->>TS: Apply tone guidelines
+    TS->>TS: Rewrite with target tone
+    TS-->>WF: styled_draft
+    
+    WF->>Mem: get_profile(user_id)
+    Mem-->>WF: user_profile
+    
+    WF->>PA: personalize(styled_draft, profile)
+    PA->>PA: Add signature & style
+    PA-->>WF: personalized_draft
+    
+    WF->>RA: review(personalized_draft, tone, intent)
+    RA->>RA: Quick validation checks
+    
+    alt Draft needs improvement
+        RA->>RA: LLM improvement
+        RA-->>WF: improved_draft
+    else Draft is good
+        RA-->>WF: approved_draft
+    end
+    
+    WF-->>UI: final_draft + metadata
+    
+    UI->>Mem: save_draft(draft_data)
+    Mem-->>UI: saved
+    
+    UI->>User: Display editable draft
+    
+    User->>UI: Edit draft
+    UI->>Mem: learn_from_edits(original, edited)
+    Mem->>Mem: Update preferences
+    
+    Note over WF,Router: Error Handling Path
+    
+    alt API Error
+        DW--xWF: Error
+        WF->>Router: handle_error()
+        Router->>Router: Create fallback draft
+        Router-->>WF: fallback_draft
+    end
