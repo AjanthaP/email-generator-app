@@ -1,6 +1,12 @@
 # AI Email Assistant
 
-This is the starter scaffold for the AI-Powered Email Assistant project. The repository follows the structure described in the project guide and includes a minimal set of files to get started.
+AI-powered email generation assistant built with FastAPI, React, and LangGraph. Generate professional emails with customizable tone, personalization, and context awareness.
+
+## 🚀 Quick Deploy to Railway
+
+[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template)
+
+See [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md) for detailed deployment instructions.
 
 ## Quick start
 
@@ -49,8 +55,58 @@ The default CORS settings allow requests from `localhost:5173` and `localhost:30
 - `src/` — source package
 - `tests/` — test package
 - `data/templates/` — email templates
+- `frontend/` — React frontend application
 - `requirements.txt`, `.env.example`, `.gitignore`
+- **Railway deployment files:**
+  - `Dockerfile` — Container configuration
+  - `railway.json` — Railway deployment settings
+  - `.dockerignore` — Docker build exclusions
+  - `start.py` — Production startup script
+  - `RAILWAY_DEPLOYMENT.md` — Deployment guide
+
+## 🚢 Deployment
+
+### Railway (Recommended)
+
+1. **Quick Check:**
+   ```bash
+   python check_railway.py
+   ```
+
+2. **Deploy:**
+   - Push to GitHub
+   - Connect Railway to your repository
+   - Add environment variables (see `.env.railway`)
+   - Railway auto-deploys!
+
+See [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md) for complete guide.
+
+### Other Platforms
+
+- **Docker:** Use provided `Dockerfile`
+- **Heroku:** Compatible with Procfile
+- **AWS/Azure:** Deploy container or use app services
+
+## 📝 Environment Variables
+
+Required for production:
+- `GEMINI_API_KEY` - Google Gemini API key
+- `JWT_SECRET_KEY` - Generate with `python -c "import secrets; print(secrets.token_urlsafe(32))"`
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` - For OAuth
+
+See `.env.railway` for complete production configuration.
+
+## 🏗️ Architecture
+
+```
+Frontend (React) ←→ Backend (FastAPI) ←→ LangGraph Workflow
+                         ↓
+                    Redis Cache
+                         ↓
+                    ChromaDB (optional)
+```
 
 ---
 
 Created from `email_assistant_guide_v2.md` project setup section.
+Railway deployment configured for production use.
