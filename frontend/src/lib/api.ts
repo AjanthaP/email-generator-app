@@ -140,8 +140,11 @@ export async function startOAuth(provider: string, userId?: string) {
 }
 
 export async function completeOAuth(provider: string, code: string, state: string) {
-  const params = new URLSearchParams({ provider, code, state })
-  return request<OAuthCallbackResponse>(`/api/auth/callback?${params.toString()}`)
+  // Use SPA-friendly POST exchange to avoid CORS on callback fetch
+  return request<OAuthCallbackResponse>(`/api/auth/exchange`, {
+    method: 'POST',
+    body: JSON.stringify({ provider, code, state }),
+  })
 }
 
 export async function logout() {
