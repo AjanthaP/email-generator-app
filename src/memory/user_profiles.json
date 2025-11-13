@@ -1,21 +1,9 @@
 {
   "default": {
-    "user_name": "Ajantha",
-    "user_title": "SWE",
-    "user_company": "Google",
-    "signature": "\n\nBest regards\nAjantha\nSWE, Google",
-    "style_notes": "professional and clear",
-    "preferences": {
-      "default_tone": "formal",
-      "use_emojis": false,
-      "preferred_length": 150
-    }
-  },
-  "Ajantha": {
-    "user_name": "Ajantha",
-    "user_title": "",
-    "user_company": "",
-    "signature": "\n\nBest regards\nAjantha",
+    "user_name": "Sender",
+    "user_title": "Sender Title",
+    "user_company": "Sender Company",
+    "signature": "\n\nBest regards\nSender\nSender Title, Sender Company",
     "style_notes": "professional and clear",
     "preferences": {
       "default_tone": "formal",

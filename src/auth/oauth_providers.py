@@ -71,6 +71,25 @@ def _has_real_value(value: Optional[str]) -> bool:
     return True
 
 
+def _sanitize_user_id(raw_value: Optional[str], fallback: str) -> str:
+    """Return a filesystem-safe identifier derived from OAuth user data."""
+    candidate = (raw_value or fallback or "user").strip()
+    if not candidate:
+        candidate = "user"
+
+    safe_chars: list[str] = []
+    for ch in candidate:
+        if ch.isalnum() or ch in {"-", "_"}:
+            safe_chars.append(ch)
+        elif ch in {"@", "."}:
+            safe_chars.append("_")
+        else:
+            safe_chars.append("-")
+
+    sanitized = "".join(safe_chars).strip("-_")
+    return sanitized.lower() or "user"
+
+
 class OAuthProvider:
     """Base class for OAuth providers."""
     
@@ -840,6 +859,16 @@ class OAuthManager:
             user_info = provider.get_user_info(tokens['access_token'])
             if not user_info:
                 return None
+
+            raw_identifier = (
+                user_info.get('email')
+                or user_info.get('provider_id')
+                or session_info.get('user_id')
+                or f"{provider_name}_user"
+            )
+            safe_user_id = _sanitize_user_id(raw_identifier, provider_name)
+
+            session_info['user_id'] = safe_user_id
             
             # Update session
             session_info['status'] = 'completed'
@@ -848,9 +877,9 @@ class OAuthManager:
             result = {
                 'session_id': session_info['session_id'],
                 'provider': provider_name,
+                'user_id': safe_user_id,
                 'tokens': tokens,
                 'user_info': user_info,
-                'user_id': session_info.get('user_id'),
                 'completed_at': session_info['completed_at']
             }
             
