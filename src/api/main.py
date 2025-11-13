@@ -39,6 +39,8 @@ for var in [
     if val and val not in origins:
         origins.append(val)
 
+print(f"[startup] CORS allow_origins resolved: {origins}")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
