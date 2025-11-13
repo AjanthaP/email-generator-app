@@ -1865,6 +1865,43 @@ A sophisticated multi-agent system that generates personalized, tone-aware email
 - 🔄 Intelligent Routing & Fallbacks
 - 📥 Export to Multiple Formats
 
+
+## Add on /Good to have Features
+
+### Planned Advanced Features (to review and implement later)
+
+- schedule_email:
+    - Purpose: Schedule email sending with timezone support and persistence.
+    - Core: Use `APScheduler` (BackgroundScheduler); parse natural language time with `dateparser`; store jobs in `data/scheduled_emails.json`.
+    - API (proposed): `POST /emails/schedule { draft, to, subject, send_at, timezone } -> { job_id, status, scheduled_time }`.
+    - Reliability: Validate time in future; handle DST; graceful retry/backoff on failure; optional dry-run mode.
+    - Optional: Google Calendar integration (events + reminders) via OAuth when configured.
+
+- analyze_tone:
+    - Purpose: Provide an analysis panel with sentiment, emotion, readability, and risk flags.
+    - Metrics: sentiment score (e.g., VADER), emotion hints, formality/politeness heuristics, readability (`textstat`), wordiness/jargon, risky phrases (caps/excess exclamations).
+    - Output (JSON): `{ sentiment, readability, flags[], suggestions[] }` for UI badges and tips.
+    - Implementation: Start with `textstat` + simple heuristics; optionally add `language-tool-python` for grammar and HuggingFace model for sentiment if desired.
+
+- suggest_improvements:
+    - Purpose: Actionable, minimal edits for grammar, clarity, conciseness, structure, and CTA strength.
+    - Output: List of suggestions with ranges and diffs: `{ id, title, description, severity, start, end, replacement }`; support 1‑click apply.
+    - Implementation: Use LanguageTool rules for grammar/spelling; craft concise rewrite heuristics; optionally fall back to LLM for complex rewrites; apply via string patches.
+    - UX: Show improvement chips; preview diff; apply/revert individually; keep a version history.
+
+Integration notes:
+- New agents map cleanly to the current pipeline as optional branches:
+    - `DraftWriter -> ToneStylist -> (analyze_tone) -> (suggest_improvements) -> Personalization -> Review`
+    - `schedule_email` is a separate post‑generation action in UI/API; not a graph node.
+
+Dependencies (to add when implementing):
+- `apscheduler`, `dateparser`, `pytz` (scheduling); `textstat`, `language-tool-python` (analysis/improvements).
+    - Optional: `transformers` or `vaderSentiment`; Google Calendar client if calendar sync is enabled.
+
+Security/ops:
+- Validate and rate‑limit schedule requests; persist jobs; add a watchdog on restart to restore pending jobs; log and notify on failures.
+
+
 ## Architecture
 
 ```
