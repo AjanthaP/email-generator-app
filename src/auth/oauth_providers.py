@@ -840,11 +840,18 @@ class OAuthManager:
         if provider_name not in self.providers:
             return None
         
-        if state not in self.active_sessions:
-            return None
+        # Retrieve session info if available, but don't fail if missing (stateless flow)
+        session_info = self.active_sessions.get(state, {
+            'session_id': str(uuid.uuid4()),
+            'provider': provider_name,
+            'user_id': None,
+            'created_at': datetime.utcnow().isoformat(),
+            'status': 'pending'
+        })
         
-        session_info = self.active_sessions[state]
-        if session_info['provider'] != provider_name:
+        # Validate provider matches if session exists
+        if session_info.get('provider') and session_info['provider'] != provider_name:
+            print(f"Provider mismatch: expected {session_info['provider']}, got {provider_name}")
             return None
         
         provider = self.providers[provider_name]
@@ -853,11 +860,13 @@ class OAuthManager:
             # Exchange code for tokens
             tokens = provider.exchange_code_for_token(code, state)
             if not tokens:
+                print(f"Token exchange failed for {provider_name}")
                 return None
             
             # Get user info
             user_info = provider.get_user_info(tokens['access_token'])
             if not user_info:
+                print(f"Failed to get user info for {provider_name}")
                 return None
 
             raw_identifier = (
@@ -883,8 +892,9 @@ class OAuthManager:
                 'completed_at': session_info['completed_at']
             }
             
-            # Clean up session
-            del self.active_sessions[state]
+            # Clean up session if it was in active_sessions
+            if state in self.active_sessions:
+                del self.active_sessions[state]
             
             return result
             
