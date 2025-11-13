@@ -60,7 +60,7 @@ async def root():
         "health": "/health",
         "endpoints": {
             "email": "/api/v1/email",
-            "auth": "/api/v1/auth",
+            "auth": "/api/auth",
             "users": "/api/v1/users"
         }
     }
@@ -76,9 +76,10 @@ async def health_check() -> HealthCheckResponse:
     )
 
 
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(email.router, prefix="/api/v1/email", tags=["email"])
 app.include_router(users.router, prefix="/api/v1", tags=["users"])
+ 
 
 
 # Entrypoint hint for `uvicorn src.api.main:app --reload`
