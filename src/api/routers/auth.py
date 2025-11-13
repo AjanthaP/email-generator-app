@@ -43,17 +43,12 @@ async def start_oauth(request: OAuthStartRequest) -> OAuthStartResponse:
 	return OAuthStartResponse(**result)
 
 
-@router.get("/callback", response_model=OAuthCallbackResponse)
-async def complete_oauth(
-	provider: str = Query(..., description="OAuth provider name"),
-	code: str = Query(..., description="Authorization code returned by the provider"),
-	state: str = Query(..., description="Opaque state returned by the provider"),
-) -> OAuthCallbackResponse:
+def _complete_oauth_common(provider: str, code: str, state: str) -> OAuthCallbackResponse:
 	manager = _ensure_manager()
 	result = manager.complete_oauth_flow(provider, code=code, state=state)
 	if not result:
 		raise HTTPException(status_code=400, detail="OAuth completion failed")
-	
+
 	# Auto-create profile with OAuth data if it doesn't exist
 	user_id = result.get('user_id')
 	user_info = result.get('user_info', {})
@@ -68,7 +63,7 @@ async def complete_oauth(
 				if '.' in domain:
 					company_name = domain.split('.')[0]
 					company = company_name.capitalize()
-			
+
 			# Create initial profile from OAuth data
 			initial_profile: Dict[str, Any] = {
 				"user_name": user_info.get('name', ''),
@@ -83,8 +78,30 @@ async def complete_oauth(
 				_memory_manager.save_profile(user_id, initial_profile)
 			except Exception as e:
 				print(f"Warning: Failed to auto-create profile for {user_id}: {e}")
-	
+
 	return OAuthCallbackResponse(**result)
+
+
+@router.get("/callback", response_model=OAuthCallbackResponse)
+async def complete_oauth(
+	provider: str = Query(..., description="OAuth provider name"),
+	code: str = Query(..., description="Authorization code returned by the provider"),
+	state: str = Query(..., description="Opaque state returned by the provider"),
+) -> OAuthCallbackResponse:
+	return _complete_oauth_common(provider, code, state)
+
+
+@router.get("/callback/{provider}", response_model=OAuthCallbackResponse)
+async def complete_oauth_path(
+	provider: str,
+	code: str = Query(..., description="Authorization code returned by the provider"),
+	state: str = Query(..., description="Opaque state returned by the provider"),
+) -> OAuthCallbackResponse:
+	"""Provider-specific callback path variant for providers that require fixed URIs.
+
+	Example: /api/v1/auth/callback/google?code=...&state=...
+	"""
+	return _complete_oauth_common(provider, code, state)
 
 
 @router.post("/exchange", response_model=OAuthCallbackResponse)
