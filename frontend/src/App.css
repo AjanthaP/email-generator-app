@@ -61,6 +61,11 @@
   transition: transform 0.2s ease;
 }
 
+.settings[open] {
+  background: rgba(30, 41, 59, 0.9);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
 .settings[open] summary {
   border-bottom: 1px solid rgba(148, 163, 184, 0.2);
   margin-bottom: 1.25rem;
