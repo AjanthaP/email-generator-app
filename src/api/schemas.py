@@ -68,10 +68,13 @@ class OAuthCallbackResponse(BaseModel):
     session_id: str
     provider: str
     user_id: Optional[str] = None
-    user_info: Dict[str, Optional[str]]
-    tokens: Dict[str, Optional[str]] = Field(
+    user_info: Dict[str, Any] = Field(
         default_factory=dict,
-        description="Raw provider token payload (access_token, refresh_token, etc.)",
+        description="User information from OAuth provider (email, name, etc.)",
+    )
+    tokens: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Raw provider token payload (access_token, refresh_token, expires_in, etc.)",
     )
 
 
