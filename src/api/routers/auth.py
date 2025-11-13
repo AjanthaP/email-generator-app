@@ -99,7 +99,7 @@ async def complete_oauth_path(
 ) -> OAuthCallbackResponse:
 	"""Provider-specific callback path variant for providers that require fixed URIs.
 
-	Example: /api/v1/auth/callback/google?code=...&state=...
+	Example: /api/auth/callback/google?code=...&state=...
 	"""
 	return _complete_oauth_common(provider, code, state)
 
@@ -109,8 +109,8 @@ async def exchange_oauth(request: OAuthExchangeRequest) -> OAuthCallbackResponse
 	"""CORS-friendly code exchange endpoint for SPAs.
 
 	Frontends should navigate users to the provider authorization URL using
-	`/api/v1/auth/start`, and then either:
-	- Let the provider redirect to `/api/v1/auth/callback` (top-level navigation), or
+	`/api/auth/start`, and then either:
+	- Let the provider redirect to `/api/auth/callback` (top-level navigation), or
 	- Capture `code` and `state` in the frontend and call this endpoint via POST
 	  to complete the exchange and receive JSON (no redirects).
 	"""

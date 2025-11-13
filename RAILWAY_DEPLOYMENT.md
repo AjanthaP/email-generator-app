@@ -151,8 +151,8 @@ In **Google Cloud Console** (https://console.cloud.google.com):
 2. Edit your OAuth 2.0 Client
 3. Add **Authorized redirect URIs**:
    ```
-   https://your-frontend.railway.app/oauth/callback
-   https://your-backend.railway.app/api/v1/auth/callback
+  https://your-frontend.railway.app/oauth/callback
+  https://your-backend.railway.app/api/auth/callback/google
    ```
 4. Save
 

@@ -125,7 +125,7 @@ export async function generateEmail(payload: EmailGenerateRequest) {
 }
 
 export async function listOAuthProviders() {
-  return request<string[]>(`/api/v1/auth/providers`).catch((error) => {
+  return request<string[]>(`/api/auth/providers`).catch((error) => {
     // Surface empty list when OAuth is disabled rather than failing the UI entirely.
     console.warn('OAuth providers unavailable:', error)
     return []
@@ -133,7 +133,7 @@ export async function listOAuthProviders() {
 }
 
 export async function startOAuth(provider: string, userId?: string) {
-  return request<OAuthStartResponse>(`/api/v1/auth/start`, {
+  return request<OAuthStartResponse>(`/api/auth/start`, {
     method: 'POST',
     body: JSON.stringify({ provider, user_id: userId }),
   })
@@ -141,11 +141,11 @@ export async function startOAuth(provider: string, userId?: string) {
 
 export async function completeOAuth(provider: string, code: string, state: string) {
   const params = new URLSearchParams({ provider, code, state })
-  return request<OAuthCallbackResponse>(`/api/v1/auth/callback?${params.toString()}`)
+  return request<OAuthCallbackResponse>(`/api/auth/callback?${params.toString()}`)
 }
 
 export async function logout() {
-  return request<{ status: string }>(`/api/v1/auth/logout`, {
+  return request<{ status: string }>(`/api/auth/logout`, {
     method: 'POST',
   })
 }
