@@ -165,7 +165,7 @@ class Settings(BaseSettings):
     
     # Security Settings
     jwt_secret_key: Optional[str] = None  # Will be auto-generated if not set
-    cors_origins: Union[List[str], str] = '["http://localhost:8501", "http://127.0.0.1:8501"]'
+    cors_origins: Union[List[str], str] = '["http://localhost:8501", "http://127.0.0.1:8501", "http://localhost:3000", "http://localhost:5173", "https://email-generator-app-frontend.vercel.app"]'
     allowed_hosts: Union[List[str], str] = '["localhost", "127.0.0.1"]'
     
     @field_validator('cors_origins', 'allowed_hosts', mode='before')

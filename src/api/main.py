@@ -19,16 +19,25 @@ app = FastAPI(
     redoc_url="/redoc" if settings.debug else None,
 )
 
-# Configure CORS - Railway-compatible
+# Configure CORS - allow configured origins plus common deployment env vars
 origins = list(settings.cors_origins) if settings.cors_origins else [
     "http://localhost:5173",
     "http://localhost:3000",
 ]
 
-# Add Railway frontend URL if deployed
-railway_frontend_url = os.getenv("RAILWAY_FRONTEND_URL")
-if railway_frontend_url and railway_frontend_url not in origins:
-    origins.append(railway_frontend_url)
+# Include commonly used env vars for production frontends (Railway, Vercel, custom)
+for var in [
+    "RAILWAY_FRONTEND_URL",
+    "FRONTEND_URL",
+    "VERCEL_URL",
+    "VERCEL_PROJECT_PRODUCTION_URL",
+]:
+    val = os.getenv(var)
+    # Normalize Vercel-provided hostnames to full https URL if needed
+    if val and not val.startswith("http"):
+        val = f"https://{val}"
+    if val and val not in origins:
+        origins.append(val)
 
 app.add_middleware(
     CORSMiddleware,
@@ -36,6 +45,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Allow Vercel preview deployments like https://<branch>-<hash>-<project>.vercel.app
+    allow_origin_regex=r"^https://[a-z0-9-]+\.vercel\.app$",
 )
 
 
