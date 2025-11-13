@@ -112,14 +112,30 @@ class PersonalizationAgent:
     
     def get_profile(self, user_id: str = "default") -> Dict:
         """
-        Get user profile by ID.
-        
-        Args:
-            user_id: User identifier (default: "default")
-            
-        Returns:
-            Dict: User profile with all settings
+        Get user profile by ID. Prefer MemoryManager/DB when available,
+        otherwise fall back to local JSON profiles.
         """
+        # Try database-backed profile first
+        try:
+            from src.memory.memory_manager import MemoryManager  # local import to avoid cycles
+            mm = MemoryManager()
+            db_profile = mm.load_profile(user_id)
+            if isinstance(db_profile, dict) and db_profile:
+                # Normalize to the structure expected by the prompt
+                prefs = db_profile.get("preferences", {}) if isinstance(db_profile.get("preferences"), dict) else {}
+                return {
+                    "user_name": db_profile.get("user_name") or db_profile.get("name") or "User",
+                    "user_title": db_profile.get("user_title") or db_profile.get("role") or "",
+                    "user_company": db_profile.get("user_company") or db_profile.get("company") or "",
+                    "signature": db_profile.get("signature") or prefs.get("signature") or "\n\nBest regards",
+                    "style_notes": db_profile.get("style_notes") or prefs.get("style_notes") or "professional and clear",
+                    "preferences": prefs,
+                }
+        except Exception:
+            # Silently fall back to file-based profile
+            pass
+
+        # Fallback to local JSON profiles
         return self.profiles.get(user_id, self._get_default_profile())
     
     def save_profile(self, user_id: str, profile_data: Dict):
@@ -149,14 +165,31 @@ class PersonalizationAgent:
         """
         try:
             profile = self.get_profile(user_id)
-            
+            # Ensure the signature includes the user's name if available
+            user_name = (profile.get("user_name") or "").strip()
+            signature = profile.get("signature", "\n\nBest regards")
+            try:
+                sig_base = signature.strip()
+                # Prepend spacing if missing
+                if not sig_base.startswith("\n"):
+                    sig_base = "\n\n" + sig_base
+                # If name isn't already present, append it on a new line
+                if user_name and user_name.lower() not in sig_base.lower():
+                    if not sig_base.endswith(",") and not sig_base.endswith(",\n"):
+                        sig_base = sig_base + ","
+                    sig_final = f"{sig_base}\n{user_name}"
+                else:
+                    sig_final = sig_base
+            except Exception:
+                sig_final = profile.get("signature", "\n\nBest regards")
+
             chain = self.prompt | self.llm
             response = self.llm_wrapper.invoke_chain(chain, {
                 "draft": draft,
                 "user_name": profile.get("user_name", ""),
                 "user_title": profile.get("user_title", ""),
                 "user_company": profile.get("user_company", ""),
-                "signature": profile.get("signature", "\n\nBest regards"),
+                "signature": sig_final,
                 "style_notes": profile.get("style_notes", "professional")
             })
             

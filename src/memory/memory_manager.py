@@ -311,7 +311,11 @@ class MemoryManager:
         self._save_profile_json(user_id, profile_data)
 
     def _save_profile_db(self, user_id: str, profile_data: Dict[str, Any]) -> None:
-        """Save profile to PostgreSQL database."""
+        """Save profile to PostgreSQL database.
+
+        Supports both legacy API keys (user_name, user_title, user_company, signature)
+        and canonical DB keys (name, role, company, preferences).
+        """
         from src.db.models import UserProfile
         
         db = self._get_db()
@@ -319,30 +323,47 @@ class MemoryManager:
             raise RuntimeError("Database session not available")
         
         try:
+            # Map incoming fields to canonical names
+            incoming_name = profile_data.get("name") or profile_data.get("user_name")
+            incoming_role = profile_data.get("role") or profile_data.get("user_title")
+            incoming_company = profile_data.get("company") or profile_data.get("user_company")
+            incoming_email = profile_data.get("email") or profile_data.get("user_email")
+
+            preferences = profile_data.get("preferences") or {}
+            if not isinstance(preferences, dict):
+                preferences = {}
+            # If a plain signature string is provided, store it under preferences.signature
+            if isinstance(profile_data.get("signature"), str):
+                preferences = {**preferences, "signature": profile_data.get("signature")}
+
             # Check if profile exists
             profile = db.query(UserProfile).filter_by(id=user_id).first()
             
             if profile:
                 # Update existing profile
-                profile.name = profile_data.get("name", profile.name)
-                profile.email = profile_data.get("email", profile.email)
-                profile.company = profile_data.get("company", profile.company)
-                profile.role = profile_data.get("role", profile.role)
+                profile.name = incoming_name if incoming_name is not None else profile.name
+                profile.email = incoming_email if incoming_email is not None else profile.email
+                profile.company = incoming_company if incoming_company is not None else profile.company
+                profile.role = incoming_role if incoming_role is not None else profile.role
                 profile.oauth_provider = profile_data.get("oauth_provider", profile.oauth_provider)
                 profile.oauth_user_id = profile_data.get("oauth_user_id", profile.oauth_user_id)
-                profile.preferences = profile_data.get("preferences", profile.preferences)
+                if preferences:
+                    current_prefs = profile.preferences or {}
+                    if not isinstance(current_prefs, dict):
+                        current_prefs = {}
+                    profile.preferences = {**current_prefs, **preferences}
                 profile.updated_at = datetime.utcnow()
             else:
                 # Create new profile
                 profile = UserProfile(
                     id=user_id,
-                    email=profile_data.get("email", f"{user_id}@unknown.com"),
-                    name=profile_data.get("name"),
-                    company=profile_data.get("company"),
-                    role=profile_data.get("role"),
+                    email=incoming_email or f"{user_id}@unknown.com",
+                    name=incoming_name,
+                    company=incoming_company,
+                    role=incoming_role,
                     oauth_provider=profile_data.get("oauth_provider"),
                     oauth_user_id=profile_data.get("oauth_user_id"),
-                    preferences=profile_data.get("preferences", {}),
+                    preferences=preferences,
                 )
                 db.add(profile)
             
@@ -382,7 +403,10 @@ class MemoryManager:
         return self._load_profile_json(user_id)
 
     def _load_profile_db(self, user_id: str) -> Optional[Dict[str, Any]]:
-        """Load profile from PostgreSQL database."""
+        """Load profile from PostgreSQL database.
+
+        Returns a dict with canonical keys and API-friendly aliases.
+        """
         from src.db.models import UserProfile
         
         db = self._get_db()
@@ -396,6 +420,11 @@ class MemoryManager:
                 return None
             
             # Convert to dict format
+            prefs = profile.preferences or {}
+            if not isinstance(prefs, dict):
+                prefs = {}
+            signature = prefs.get("signature") if isinstance(prefs, dict) else None
+
             result = {
                 "id": profile.id,
                 "email": profile.email,
@@ -404,10 +433,15 @@ class MemoryManager:
                 "role": profile.role,
                 "oauth_provider": profile.oauth_provider,
                 "oauth_user_id": profile.oauth_user_id,
-                "preferences": profile.preferences or {},
+                "preferences": prefs,
                 "created_at": profile.created_at.isoformat() if profile.created_at else None,
                 "updated_at": profile.updated_at.isoformat() if profile.updated_at else None,
                 "last_login_at": profile.last_login_at.isoformat() if profile.last_login_at else None,
+                # Aliases expected by some agents/UI
+                "user_name": profile.name or "",
+                "user_company": profile.company or "",
+                "user_title": profile.role or "",
+                "signature": signature or "\n\nBest regards",
             }
             
             logger.debug(f"Loaded profile from database for user {user_id}")
