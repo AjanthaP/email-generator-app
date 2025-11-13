@@ -4,6 +4,8 @@ This service exposes REST endpoints that wrap the LangGraph workflow, making it
 accessible to external clients (e.g., a React front-end).
 """
 import os
+import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -13,12 +15,49 @@ from src.utils.config import settings
 from .routers import auth, email, users
 from .schemas import HealthCheckResponse
 
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup and shutdown events for the FastAPI application."""
+    # Startup
+    logger.info("Starting application...")
+    
+    # Initialize database if DATABASE_URL is configured
+    if settings.database_url:
+        try:
+            from src.db.database import init_db
+            init_db()
+            logger.info("✓ Database initialized successfully")
+        except Exception as e:
+            logger.error(f"✗ Failed to initialize database: {e}")
+            logger.warning("Application will use JSON file fallback for storage")
+    else:
+        logger.warning("DATABASE_URL not configured - using JSON file storage")
+        logger.info("To enable PostgreSQL: Set DATABASE_URL environment variable")
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down application...")
+    if settings.database_url:
+        try:
+            from src.db.database import get_db_manager
+            db_manager = get_db_manager()
+            db_manager.close()
+            logger.info("Database connections closed")
+        except Exception as e:
+            logger.warning(f"Error closing database: {e}")
+
+
 app = FastAPI(
     title=settings.app_name,
     version="1.0.0",
     description="AI-Powered Email Generation API",
     docs_url="/docs" if settings.debug else None,
     redoc_url="/redoc" if settings.debug else None,
+    lifespan=lifespan,
 )
 
 # Configure CORS - allow configured origins plus common deployment env vars

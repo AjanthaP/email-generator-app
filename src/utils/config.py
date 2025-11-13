@@ -68,6 +68,13 @@ class Settings(BaseSettings):
     redis_rate_limit_ttl: int = 60   # 1 minute
     redis_metrics_ttl: int = 604800  # 1 week
 
+    # PostgreSQL Database Configuration
+    database_url: Optional[str] = None  # e.g., postgresql://user:pass@host:port/dbname
+    database_pool_size: int = 5
+    database_max_overflow: int = 10
+    database_pool_recycle: int = 3600  # Recycle connections after 1 hour
+    database_echo: bool = False  # Set to True to log all SQL queries
+
     # ChromaDB Configuration
     enable_chromadb: bool = True
     chromadb_persist_dir: str = "data/chromadb"
