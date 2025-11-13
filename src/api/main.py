@@ -4,8 +4,10 @@ This service exposes REST endpoints that wrap the LangGraph workflow, making it
 accessible to external clients (e.g., a React front-end).
 """
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError, HTTPException
 
 from src.utils.config import settings
 from .routers import auth, email, users
@@ -50,6 +52,33 @@ app.add_middleware(
     # Allow Vercel preview deployments like https://<branch>-<hash>-<project>.vercel.app
     allow_origin_regex=r"^https://[a-z0-9-]+\.vercel\.app$",
 )
+
+
+# Add exception handlers to ensure CORS headers on error responses
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Ensure CORS headers are present on HTTP exceptions."""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers={
+            "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
+            "Access-Control-Allow-Credentials": "true",
+        },
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Ensure CORS headers are present on validation errors."""
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": exc.errors()},
+        headers={
+            "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
+            "Access-Control-Allow-Credentials": "true",
+        },
+    )
 
 
 @app.get("/")
