@@ -6,7 +6,12 @@ from fastapi import APIRouter, HTTPException, Query
 from src.auth.oauth_providers import OAuthManager, create_oauth_manager
 from src.memory.memory_manager import MemoryManager
 from src.utils.config import settings
-from ..schemas import OAuthCallbackResponse, OAuthStartRequest, OAuthStartResponse
+from ..schemas import (
+	OAuthCallbackResponse,
+	OAuthStartRequest,
+	OAuthStartResponse,
+	OAuthExchangeRequest,
+)
 
 router = APIRouter()
 
@@ -79,6 +84,53 @@ async def complete_oauth(
 			except Exception as e:
 				print(f"Warning: Failed to auto-create profile for {user_id}: {e}")
 	
+	return OAuthCallbackResponse(**result)
+
+
+@router.post("/exchange", response_model=OAuthCallbackResponse)
+async def exchange_oauth(request: OAuthExchangeRequest) -> OAuthCallbackResponse:
+	"""CORS-friendly code exchange endpoint for SPAs.
+
+	Frontends should navigate users to the provider authorization URL using
+	`/api/v1/auth/start`, and then either:
+	- Let the provider redirect to `/api/v1/auth/callback` (top-level navigation), or
+	- Capture `code` and `state` in the frontend and call this endpoint via POST
+	  to complete the exchange and receive JSON (no redirects).
+	"""
+	manager = _ensure_manager()
+	result = manager.complete_oauth_flow(
+		request.provider, code=request.code, state=request.state
+	)
+	if not result:
+		raise HTTPException(status_code=400, detail="OAuth code exchange failed")
+
+	# Optionally auto-create profile as done in the callback flow
+	user_id = result.get('user_id')
+	user_info = result.get('user_info', {})
+	if user_id and user_info:
+		existing_profile = _memory_manager.load_profile(user_id)
+		if not existing_profile:
+			company = ""
+			email = user_info.get('email', '')
+			if email and '@' in email:
+				domain = email.split('@')[1]
+				if '.' in domain:
+					company_name = domain.split('.')[0]
+					company = company_name.capitalize()
+			initial_profile: Dict[str, Any] = {
+				"user_name": user_info.get('name', ''),
+				"user_title": "",
+				"user_company": company,
+				"signature": "\n\nBest regards",
+				"style_notes": "professional and clear",
+				"preferences": {},
+				"learned_preferences": {},
+			}
+			try:
+				_memory_manager.save_profile(user_id, initial_profile)
+			except Exception as e:
+				print(f"Warning: Failed to auto-create profile for {user_id}: {e}")
+
 	return OAuthCallbackResponse(**result)
 
 

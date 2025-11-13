@@ -75,6 +75,12 @@ class OAuthCallbackResponse(BaseModel):
     )
 
 
+class OAuthExchangeRequest(BaseModel):
+    provider: str = Field(..., description="OAuth provider name (google, github, microsoft)")
+    code: str = Field(..., description="Authorization code returned by the provider")
+    state: str = Field(..., description="Opaque state returned by the provider")
+
+
 class UserProfile(BaseModel):
     user_id: str
     user_name: str = ""
