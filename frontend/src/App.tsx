@@ -64,8 +64,6 @@ function App() {
 
   const [providers, setProviders] = useState<string[]>([])
   const [authMessage, setAuthMessage] = useState<string | null>(null)
-    return null
-  })
 
   const [profileLoading, setProfileLoading] = useState(false)
   const [profileSaving, setProfileSaving] = useState(false)
