@@ -154,7 +154,7 @@ def migrate_drafts(db: Session, data_dir: Path) -> int:
                         user_id=user_id,
                         content=draft_data.get("content", ""),
                         original_input=draft_data.get("original_input"),
-                        metadata=draft_data.get("metadata", {}),
+                        draft_metadata=draft_data.get("metadata", {}),
                         created_at=_parse_datetime(draft_data.get("created_at")),
                     )
                     

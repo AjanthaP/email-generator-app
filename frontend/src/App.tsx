@@ -19,7 +19,10 @@ const toneOptions = ['formal', 'casual', 'assertive', 'empathetic']
 
 function App() {
   const [prompt, setPrompt] = useState('')
-  const [userId, setUserId] = useState('default')
+  const [userId, setUserId] = useState(() => {
+    // Restore user_id from localStorage on initial load
+    return localStorage.getItem('user_id') || 'default'
+  })
   const [tone, setTone] = useState<string>('formal')
   const [lengthPreference, setLengthPreference] = useState<number>(150)
   const [recipient, setRecipient] = useState('')
@@ -35,7 +38,18 @@ function App() {
 
   const [providers, setProviders] = useState<string[]>([])
   const [authMessage, setAuthMessage] = useState<string | null>(null)
-  const [authResult, setAuthResult] = useState<OAuthCallbackResponse | null>(null)
+  const [authResult, setAuthResult] = useState<OAuthCallbackResponse | null>(() => {
+    // Restore auth session from localStorage on initial load
+    const stored = localStorage.getItem('auth_result')
+    if (stored) {
+      try {
+        return JSON.parse(stored)
+      } catch {
+        return null
+      }
+    }
+    return null
+  })
 
   const [profileLoading, setProfileLoading] = useState(false)
   const [profileSaving, setProfileSaving] = useState(false)
@@ -89,6 +103,24 @@ function App() {
   useEffect(() => {
     listOAuthProviders().then(setProviders).catch(() => setProviders([]))
   }, [])
+
+  // Persist userId to localStorage whenever it changes
+  useEffect(() => {
+    if (userId && userId !== 'default') {
+      localStorage.setItem('user_id', userId)
+    } else {
+      localStorage.removeItem('user_id')
+    }
+  }, [userId])
+
+  // Persist authResult to localStorage whenever it changes
+  useEffect(() => {
+    if (authResult) {
+      localStorage.setItem('auth_result', JSON.stringify(authResult))
+    } else {
+      localStorage.removeItem('auth_result')
+    }
+  }, [authResult])
 
   // Handle OAuth callback if provider redirected back with code/state.
   useEffect(() => {
@@ -255,7 +287,11 @@ function App() {
     try {
       await logoutRequest()
       setAuthResult(null)
+      setUserId('default')
       setAuthMessage('Signed out.')
+      // Clear localStorage on logout
+      localStorage.removeItem('auth_result')
+      localStorage.removeItem('user_id')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to sign out.'
       setAuthMessage(message)

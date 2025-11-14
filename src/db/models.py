@@ -75,7 +75,8 @@ class Draft(Base):
     original_input = Column(Text, nullable=True)  # User's original request
     
     # Metadata (stored as JSON for flexibility)
-    metadata = Column(JSON, nullable=True, default=dict)
+    # Renamed from 'metadata' to avoid SQLAlchemy reserved attribute
+    draft_metadata = Column(JSON, nullable=True, default=dict)
     # Example structure:
     # {
     #   "tone": "professional",

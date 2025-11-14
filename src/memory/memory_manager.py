@@ -90,7 +90,7 @@ class MemoryManager:
                 user_id=user_id,
                 content=draft_data.get("content", ""),
                 original_input=draft_data.get("original_input"),
-                metadata=draft_data.get("metadata", {}),
+                draft_metadata=draft_data.get("metadata", {}),
             )
             db.add(draft)
             db.commit()
@@ -166,7 +166,7 @@ class MemoryManager:
                     "id": draft.id,
                     "content": draft.content,
                     "original_input": draft.original_input,
-                    "metadata": draft.metadata or {},
+                    "metadata": draft.draft_metadata or {},
                     "created_at": draft.created_at.isoformat() if draft.created_at else None,
                 })
             
