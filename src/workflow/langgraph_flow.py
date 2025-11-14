@@ -185,7 +185,7 @@ def _generate_stub_state(user_input: str, tone: str = "formal") -> EmailState:
     return state
 
 
-def execute_workflow(user_input: str, llm: Optional[ChatGoogleGenerativeAI] = None, use_stub: Optional[bool] = None, user_id: str = "default") -> EmailState:
+def execute_workflow(user_input: str, llm: Optional[ChatGoogleGenerativeAI] = None, use_stub: Optional[bool] = None, user_id: str = "default", developer_mode: bool = False) -> EmailState:
     """Execute the email workflow sequentially and return the final state.
 
     If `use_stub` is True, the function will generate a stubbed state without calling the LLMs.
@@ -235,6 +235,9 @@ def execute_workflow(user_input: str, llm: Optional[ChatGoogleGenerativeAI] = No
         return any(k in msg for k in keywords)
 
     # Run agents in order, merging returned updates into state
+    # Developer trace collection
+    developer_trace: list[dict[str, Any]] = []
+
     for node_name in order:
         agent = agents.get(node_name)
         if agent is None:
@@ -245,6 +248,18 @@ def execute_workflow(user_input: str, llm: Optional[ChatGoogleGenerativeAI] = No
             # Merge updates into state
             for k, v in updates.items():
                 state[k] = v  # type: ignore[index]
+
+            if developer_mode:
+                # Capture a snapshot after this agent runs
+                snapshot_keys = [
+                    "parsed_data", "intent", "draft", "tone", "personalized_draft",
+                    "final_draft", "metadata"
+                ]
+                snapshot = {k: state.get(k) for k in snapshot_keys if k in state}
+                developer_trace.append({
+                    "agent": node_name,
+                    "snapshot": snapshot
+                })
         except Exception as e:
             # If it's a Gemini quota/429 error, switch to the stubbed generator
             # immediately and return a usable state rather than continuing with
@@ -265,18 +280,22 @@ def execute_workflow(user_input: str, llm: Optional[ChatGoogleGenerativeAI] = No
                 # Update metadata to indicate source is now stub but record the attempted model
                 stub_state.setdefault("metadata", {})
                 stub_state["metadata"].update({"source": "stub", "fallback_from_model": settings.gemini_model})
+                if developer_mode:
+                    stub_state["developer_trace"] = developer_trace
                 return stub_state
 
             # Non-quota error: capture and continue to next agent (best-effort)
             # This keeps the workflow robust when a single agent fails.
 
+    if developer_mode:
+        state["developer_trace"] = developer_trace
     return state
 
 
 __all__ = ["EmailState", "execute_workflow", "create_agents", "default_graph_order"]
 
 
-def generate_email(user_input: str, tone: str = "formal", use_stub: Optional[bool] = None, user_id: str = "default") -> Dict[str, Any]:
+def generate_email(user_input: str, tone: str = "formal", use_stub: Optional[bool] = None, user_id: str = "default", developer_mode: bool = False) -> Dict[str, Any]:
     """Convenience wrapper matching the v2 guide's example signature.
 
     This wraps `execute_workflow` and returns a simplified dict containing
@@ -295,13 +314,16 @@ def generate_email(user_input: str, tone: str = "formal", use_stub: Optional[boo
             - metadata: dict (source/model/fallback info)
             - review_notes: optional dict of agent-level errors/fallback reasons
     """
-    state = execute_workflow(user_input, use_stub=use_stub, user_id=user_id)
+    state = execute_workflow(user_input, use_stub=use_stub, user_id=user_id, developer_mode=developer_mode)
     # Choose best available draft key
     final = state.get("final_draft") or state.get("personalized_draft") or state.get("styled_draft") or state.get("draft") or ""
-    return {
+    result = {
         "final_draft": final,
         "metadata": state.get("metadata", {}),
         "review_notes": state.get("review_notes", {}),
     }
+    if developer_mode:
+        result["developer_trace"] = state.get("developer_trace", [])
+    return result
 
 __all__.append("generate_email")

@@ -308,7 +308,7 @@ def main():
     print("✅ All tests completed successfully!")
     print("\nNext steps:")
     print("  1. Implement LangGraph workflow (src/workflow/langgraph_flow.py)")
-    print("  2. Build Streamlit UI (src/ui/streamlit_app.py)")
+    print("  2. Build React UI (frontend/) and surface developer trace")
     print("  3. Add Day 2 features and memory management")
     print("\n")
     

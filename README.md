@@ -37,10 +37,10 @@ pip install -r requirements.txt
 
 3. Copy `.env.example` to `.env` and add your API keys.
 
-4. Run the Streamlit UI (after setting `GEMINI_API_KEY` in `.env`):
+4. Run the FastAPI backend locally (after setting `GEMINI_API_KEY` in `.env`):
 
 ```powershell
-streamlit run src/ui/streamlit_app.py
+uvicorn src.api.main:app --reload --port 8001
 ```
 
 ### Backend API (FastAPI)
@@ -60,8 +60,8 @@ The default CORS settings allow requests from `localhost:5173` and `localhost:30
 
 - Scaffold a React app in `frontend/` (Vite recommended) and configure it to call `http://localhost:8001/api/v1/email/generate`.
 - Implement authentication pages and OAuth redirects using React Router (paths such as `/auth/callback`).
-- Replace Streamlit UI pieces incrementally by reusing the existing API endpoints for prompts, templates, history, and profiles.
-- Once complete, Streamlit can be kept for internal tooling or removed.
+- Add a "Developer Mode" toggle to surface per-agent workflow trace returned by `generate_email(..., developer_mode=True)`.
+- Render each agent snapshot (parsed input, intent, draft variants, final draft) above the draft history panel.
 
 ## Files created
 - `src/` — source package

@@ -319,7 +319,7 @@ def main():
         print("  1. Check your Gemini API quota at: https://ai.google.dev/pricing")
         print("  2. Consider upgrading to paid tier or wait for quota reset")
         print("  3. Implement LangGraph workflow (src/workflow/langgraph_flow.py)")
-        print("  4. Build Streamlit UI (src/ui/streamlit_app.py)")
+        print("  4. Build React UI (frontend/) and integrate developer trace")
     else:
         print("⚠️  SOME TESTS FAILED - Please review the errors above")
     print("="*70 + "\n")
