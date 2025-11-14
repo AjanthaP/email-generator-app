@@ -123,7 +123,7 @@ class PersonalizationAgent:
             if isinstance(db_profile, dict) and db_profile:
                 # Normalize to the structure expected by the prompt
                 prefs = db_profile.get("preferences", {}) if isinstance(db_profile.get("preferences"), dict) else {}
-                return {
+                profile = {
                     "user_name": db_profile.get("user_name") or db_profile.get("name") or "User",
                     "user_title": db_profile.get("user_title") or db_profile.get("role") or "",
                     "user_company": db_profile.get("user_company") or db_profile.get("company") or "",
@@ -131,12 +131,16 @@ class PersonalizationAgent:
                     "style_notes": db_profile.get("style_notes") or prefs.get("style_notes") or "professional and clear",
                     "preferences": prefs,
                 }
-        except Exception:
-            # Silently fall back to file-based profile
-            pass
+                print(f"[PersonalizationAgent] Loaded profile from DB for user {user_id}: name={profile['user_name']}")
+                return profile
+        except Exception as e:
+            # Log the exception to help debug
+            print(f"[PersonalizationAgent] Failed to load profile from DB for user {user_id}: {e}")
 
         # Fallback to local JSON profiles
-        return self.profiles.get(user_id, self._get_default_profile())
+        json_profile = self.profiles.get(user_id, self._get_default_profile())
+        print(f"[PersonalizationAgent] Using JSON profile for user {user_id}: name={json_profile.get('user_name', 'User')}")
+        return json_profile
     
     def save_profile(self, user_id: str, profile_data: Dict):
         """

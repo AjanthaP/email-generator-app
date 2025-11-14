@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError, HTTPException
 
 from src.utils.config import settings
-from .routers import auth, email, users
+from .routers import auth, email, users, debug
 from .schemas import HealthCheckResponse
 
 logger = logging.getLogger(__name__)
@@ -166,6 +166,8 @@ async def health_check() -> HealthCheckResponse:
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(email.router, prefix="/api/v1/email", tags=["email"])
 app.include_router(users.router, prefix="/api/v1", tags=["users"])
+if settings.debug:
+    app.include_router(debug.router, prefix="/api/debug", tags=["debug"])
  
 
 

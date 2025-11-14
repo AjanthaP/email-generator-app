@@ -210,6 +210,9 @@ def execute_workflow(user_input: str, llm: Optional[ChatGoogleGenerativeAI] = No
 
     # Initialize state with user_id
     state: EmailState = {"user_input": user_input, "tone": "formal", "user_id": user_id}
+    
+    # Debug log
+    print(f"[Workflow] Executing with user_id: {user_id}")
 
     # Attach metadata indicating we're attempting to use the LLM by default.
     # If a quota fallback happens later, this will be updated to indicate stub.
