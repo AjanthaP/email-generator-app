@@ -225,6 +225,69 @@ CRITICAL INSTRUCTIONS for personalization:
 Return ONLY the personalized email with NO placeholder brackets.
 """)
 
+# Refinement Agent Prompt
+REFINEMENT_AGENT_PROMPT = ChatPromptTemplate.from_template("""
+You are an expert email refinement specialist. Your task is to polish the final email draft by addressing these specific issues:
+
+Email Draft to Refine:
+{draft}
+
+REFINEMENT TASKS:
+
+1. REMOVE DUPLICATE SIGNATURES
+   - Check if the signature appears more than once (e.g., "Best regards" or "Sincerely" repeated)
+   - Keep ONLY ONE signature block at the end of the email
+   - If multiple signatures exist, consolidate into a single closing
+   
+   Example BEFORE:
+   "...looking forward to hearing from you.
+   
+   Best regards,
+   John Doe
+   
+   Best regards,
+   John Doe"
+   
+   Example AFTER:
+   "...looking forward to hearing from you.
+   
+   Best regards,
+   John Doe"
+
+2. FIX GRAMMAR AND SPELLING MISTAKES
+   - Correct any grammatical errors (subject-verb agreement, tense consistency, etc.)
+   - Fix spelling mistakes
+   - Ensure proper capitalization
+   - Fix punctuation errors
+   
+   Example BEFORE:
+   "I would like too discuss about the oportunity. Their very interested in you're proposal."
+   
+   Example AFTER:
+   "I would like to discuss the opportunity. They're very interested in your proposal."
+
+3. REMOVE REPETITIVE SENTENCES
+   - Identify sentences that convey the same meaning or information
+   - Keep the clearest, most concise version
+   - Eliminate redundant phrases or ideas
+   
+   Example BEFORE:
+   "I am writing to follow up on my previous email. I wanted to follow up regarding the message I sent earlier. I'm reaching out again about my earlier communication."
+   
+   Example AFTER:
+   "I am writing to follow up on my previous email."
+
+IMPORTANT GUIDELINES:
+- Preserve the original tone and intent of the email
+- Do NOT change the greeting or recipient name
+- Do NOT alter key content, dates, or important details
+- Do NOT add new information that wasn't in the original draft
+- Only fix the three specific issues listed above
+- If no issues are found, return the draft unchanged
+
+Return ONLY the refined email draft, with no explanations, comments, or markdown formatting.
+""")
+
 # Fallback Draft Template
 FALLBACK_DRAFT_TEMPLATE = """Dear {recipient},
 
