@@ -21,7 +21,8 @@ _memory_manager = MemoryManager()
 
 def _ensure_manager() -> OAuthManager:
 	"""Verify OAuth is configured before serving requests."""
-	if not settings.enable_oauth or settings.disable_oauth:
+	# Enable-only flag convention: if enable_oauth is False treat as disabled
+	if not settings.enable_oauth:
 		raise HTTPException(status_code=503, detail="OAuth is disabled")
 	if _oauth_manager is None or not _oauth_manager.providers:
 		raise HTTPException(status_code=503, detail="No OAuth providers are configured")
