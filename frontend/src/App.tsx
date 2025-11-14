@@ -19,10 +19,36 @@ const toneOptions = ['formal', 'casual', 'assertive', 'empathetic']
 
 function App() {
   const [prompt, setPrompt] = useState('')
+  
+  // Restore auth session from localStorage first
+  const [authResult, setAuthResult] = useState<OAuthCallbackResponse | null>(() => {
+    const stored = localStorage.getItem('auth_result')
+    if (stored) {
+      try {
+        return JSON.parse(stored)
+      } catch {
+        return null
+      }
+    }
+    return null
+  })
+  
+  // Restore user_id: prefer auth_result.user_id, fallback to stored user_id, then 'default'
   const [userId, setUserId] = useState(() => {
-    // Restore user_id from localStorage on initial load
+    const stored = localStorage.getItem('auth_result')
+    if (stored) {
+      try {
+        const authData = JSON.parse(stored)
+        if (authData?.user_id) {
+          return authData.user_id
+        }
+      } catch {
+        // ignore
+      }
+    }
     return localStorage.getItem('user_id') || 'default'
   })
+  
   const [tone, setTone] = useState<string>('formal')
   const [lengthPreference, setLengthPreference] = useState<number>(150)
   const [recipient, setRecipient] = useState('')
@@ -38,16 +64,6 @@ function App() {
 
   const [providers, setProviders] = useState<string[]>([])
   const [authMessage, setAuthMessage] = useState<string | null>(null)
-  const [authResult, setAuthResult] = useState<OAuthCallbackResponse | null>(() => {
-    // Restore auth session from localStorage on initial load
-    const stored = localStorage.getItem('auth_result')
-    if (stored) {
-      try {
-        return JSON.parse(stored)
-      } catch {
-        return null
-      }
-    }
     return null
   })
 
@@ -117,10 +133,14 @@ function App() {
   useEffect(() => {
     if (authResult) {
       localStorage.setItem('auth_result', JSON.stringify(authResult))
+      // Also update userId if authResult has a user_id
+      if (authResult.user_id && authResult.user_id !== userId) {
+        setUserId(authResult.user_id)
+      }
     } else {
       localStorage.removeItem('auth_result')
     }
-  }, [authResult])
+  }, [authResult, userId])
 
   // Handle OAuth callback if provider redirected back with code/state.
   useEffect(() => {
