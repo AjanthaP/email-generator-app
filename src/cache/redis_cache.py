@@ -35,7 +35,6 @@ except ImportError:
         redis_rate_limit_ttl = 60
         redis_metrics_ttl = 604800
         enable_redis = True
-        disable_redis = False
     app_settings = MockSettings()
 
 
@@ -500,9 +499,7 @@ def create_redis_cache(
     """
     # Use settings to determine if Redis should be enabled
     use_redis = use_redis if use_redis is not None else app_settings.enable_redis
-    
-    # Check if Redis is disabled via settings or environment
-    if not use_redis or app_settings.disable_redis:
+    if not use_redis:
         return None
     
     # Parse Redis URL if provided

@@ -20,7 +20,6 @@ except ImportError:
     # Fallback for when imported directly
     class MockSettings:
         enable_chromadb = True
-        disable_chromadb = False
         chromadb_persist_dir = "data/chromadb"
         chromadb_collection_name = "email_contexts"
         chromadb_allow_reset = False
@@ -505,9 +504,7 @@ def create_chroma_context_manager(
     """
     # Use settings to determine if ChromaDB should be enabled
     use_chromadb = use_chromadb if use_chromadb is not None else app_settings.enable_chromadb
-    
-    # Check if ChromaDB is disabled via settings
-    if not use_chromadb or app_settings.disable_chromadb:
+    if not use_chromadb:
         return None
     
     try:

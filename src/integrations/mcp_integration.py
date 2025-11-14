@@ -18,7 +18,6 @@ except ImportError:
     # Fallback for standalone usage
     class MockSettings:
         enable_mcp = True
-        disable_mcp = False
         mcp_server_host = "localhost"
         mcp_server_port = 8765
         mcp_server_name = "email-generator-mcp-server"
@@ -842,9 +841,7 @@ def create_mcp_server(
     """
     # Use settings to determine if MCP should be enabled
     use_mcp = use_mcp if use_mcp is not None else app_settings.enable_mcp
-    
-    # Check if MCP is disabled via settings
-    if not use_mcp or app_settings.disable_mcp:
+    if not use_mcp:
         return None
     
     try:
@@ -869,9 +866,7 @@ def create_mcp_client(
     """
     # Use settings to determine if MCP should be enabled
     use_mcp = use_mcp if use_mcp is not None else app_settings.enable_mcp
-    
-    # Check if MCP is disabled via settings
-    if not use_mcp or app_settings.disable_mcp:
+    if not use_mcp:
         return None
     
     try:

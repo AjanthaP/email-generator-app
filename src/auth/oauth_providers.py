@@ -22,7 +22,6 @@ except ImportError:
     # Fallback for standalone usage
     class MockSettings:
         enable_oauth = True
-        disable_oauth = False
         oauth_config_file = "config/oauth_config.json"
         google_client_id = ""
         google_client_secret = ""
@@ -982,9 +981,7 @@ def create_oauth_manager(
     """
     # Use settings to determine if OAuth should be enabled
     use_oauth = use_oauth if use_oauth is not None else app_settings.enable_oauth
-    
-    # Check if OAuth is disabled via settings
-    if not use_oauth or app_settings.disable_oauth:
+    if not use_oauth:
         return None
     
     if not REQUESTS_AVAILABLE:

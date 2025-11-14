@@ -76,6 +76,8 @@ function App() {
     signature: '\n\nBest regards',
     style_notes: 'professional and clear',
   })
+  // Track first-time auto initialization so we don't repeat
+  const [autoInitDone, setAutoInitDone] = useState(false)
 
   const [history, setHistory] = useState<DraftHistoryEntry[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -230,6 +232,49 @@ function App() {
       window.clearTimeout(timer)
     }
   }, [normalizedUserId])
+
+  // Auto-initialize & persist profile after first successful OAuth login if empty
+  useEffect(() => {
+    if (
+      !autoInitDone &&
+      authResult &&
+      !profileLoading &&
+      normalizedUserId !== 'default' &&
+      profileForm.user_name.trim() === '' &&
+      authResult.user_info?.name
+    ) {
+      const initial = {
+        user_name: authResult.user_info.name ?? '',
+        user_company: (() => {
+          const email = authResult.user_info.email || ''
+            ;
+          if (email.includes('@')) {
+            const domainPart = email.split('@')[1]
+            const company = domainPart.split('.')[0]
+            return company.charAt(0).toUpperCase() + company.slice(1)
+          }
+          return ''
+        })(),
+        user_title: '',
+        signature: '\n\nBest regards',
+        style_notes: 'professional and clear',
+      }
+      updateUserProfile(normalizedUserId, initial)
+        .then((saved) => {
+          setProfileForm({
+            user_name: saved.user_name ?? initial.user_name,
+            user_title: saved.user_title ?? '',
+            user_company: saved.user_company ?? initial.user_company,
+            signature: saved.signature ?? initial.signature,
+            style_notes: saved.style_notes ?? initial.style_notes,
+          })
+        })
+        .catch((e) => {
+          console.warn('Auto profile init failed:', e)
+        })
+        .finally(() => setAutoInitDone(true))
+    }
+  }, [authResult, profileForm.user_name, profileLoading, normalizedUserId, autoInitDone])
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()

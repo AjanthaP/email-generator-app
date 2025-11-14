@@ -20,7 +20,6 @@ except ImportError:
     # Fallback for when imported directly
     class MockSettings:
         enable_gmail = True
-        disable_gmail = False
         gmail_credentials_file = "config/gmail_credentials.json"
         gmail_token_file = "data/gmail_token.pickle"
         gmail_scopes = [
@@ -529,9 +528,7 @@ def create_gmail_service(
     """
     # Use settings to determine if Gmail should be enabled
     use_gmail = use_gmail if use_gmail is not None else app_settings.enable_gmail
-    
-    # Check if Gmail is disabled via settings
-    if not use_gmail or app_settings.disable_gmail:
+    if not use_gmail:
         return None
     
     if not GMAIL_AVAILABLE:

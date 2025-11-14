@@ -193,14 +193,14 @@ class Settings(BaseSettings):
                 return [v] if v else []
         return v if isinstance(v, list) else [v]
     
-    # Feature Toggles
-    disable_redis: bool = False
-    disable_chromadb: bool = False
-    disable_mongodb: bool = False
-    disable_gmail: bool = False
-    disable_oauth: bool = False
-    disable_mcp: bool = False
-    disable_auth: bool = False
+    # Feature Toggles (positive form)
+    enable_redis: bool = True
+    enable_chromadb: bool = True
+    enable_mongodb: bool = False
+    enable_gmail: bool = True
+    enable_oauth: bool = True
+    enable_mcp: bool = True
+    enable_auth: bool = True
     
     class Config:
         env_file = ".env"
