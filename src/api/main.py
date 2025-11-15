@@ -146,9 +146,9 @@ async def root():
         "docs": "/docs" if settings.debug else "Documentation disabled in production",
         "health": "/health",
         "endpoints": {
-            "email": "/api/v1/email",
-            "auth": "/api/auth",
-            "users": "/api/v1/users"
+            "email": "/email",
+            "auth": "/auth",
+            "users": "/users"
         }
     }
 
@@ -163,11 +163,11 @@ async def health_check() -> HealthCheckResponse:
     )
 
 
-app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-app.include_router(email.router, prefix="/api/v1/email", tags=["email"])
-app.include_router(users.router, prefix="/api/v1", tags=["users"])
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(email.router, prefix="/email", tags=["email"])
+app.include_router(users.router, prefix="/users", tags=["users"])
 if settings.debug:
-    app.include_router(debug.router, prefix="/api/debug", tags=["debug"])
+    app.include_router(debug.router, prefix="/debug", tags=["debug"])
  
 
 

@@ -162,7 +162,7 @@ Migration completed successfully!
 ### Test 1: Create a User Profile
 
 ```bash
-curl -X POST https://your-backend.railway.app/api/v1/users/profile \
+curl -X POST https://your-backend.railway.app/users/profile \
   -H "Content-Type: application/json" \
   -d '{
     "user_id": "test_user",

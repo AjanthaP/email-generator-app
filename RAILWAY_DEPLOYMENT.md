@@ -182,7 +182,7 @@ Visit: `https://your-backend.railway.app/docs`
 ### Generate Email Test
 
 ```bash
-curl -X POST https://your-backend.railway.app/api/v1/email/generate \
+curl -X POST https://your-backend.railway.app/email/generate \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "Write a professional follow-up email to John",

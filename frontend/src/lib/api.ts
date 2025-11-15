@@ -118,14 +118,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export async function generateEmail(payload: EmailGenerateRequest) {
-  return request<EmailGenerateResponse>(`/api/v1/email/generate`, {
+  return request<EmailGenerateResponse>(`/email/generate`, {
     method: 'POST',
     body: JSON.stringify(payload),
   })
 }
 
 export async function listOAuthProviders() {
-  return request<string[]>(`/api/auth/providers`).catch((error) => {
+  return request<string[]>(`/auth/providers`).catch((error) => {
     // Surface empty list when OAuth is disabled rather than failing the UI entirely.
     console.warn('OAuth providers unavailable:', error)
     return []
@@ -133,7 +133,7 @@ export async function listOAuthProviders() {
 }
 
 export async function startOAuth(provider: string, userId?: string) {
-  return request<OAuthStartResponse>(`/api/auth/start`, {
+  return request<OAuthStartResponse>(`/auth/start`, {
     method: 'POST',
     body: JSON.stringify({ provider, user_id: userId }),
   })
@@ -141,24 +141,24 @@ export async function startOAuth(provider: string, userId?: string) {
 
 export async function completeOAuth(provider: string, code: string, state: string) {
   // Use SPA-friendly POST exchange to avoid CORS on callback fetch
-  return request<OAuthCallbackResponse>(`/api/auth/exchange`, {
+  return request<OAuthCallbackResponse>(`/auth/exchange`, {
     method: 'POST',
     body: JSON.stringify({ provider, code, state }),
   })
 }
 
 export async function logout() {
-  return request<{ status: string }>(`/api/auth/logout`, {
+  return request<{ status: string }>(`/auth/logout`, {
     method: 'POST',
   })
 }
 
 export async function getUserProfile(userId: string) {
-  return request<UserProfile>(`/api/v1/users/${encodeURIComponent(userId)}/profile`)
+  return request<UserProfile>(`/users/${encodeURIComponent(userId)}/profile`)
 }
 
 export async function updateUserProfile(userId: string, payload: UserProfileUpdate) {
-  return request<UserProfile>(`/api/v1/users/${encodeURIComponent(userId)}/profile`, {
+  return request<UserProfile>(`/users/${encodeURIComponent(userId)}/profile`, {
     method: 'PUT',
     body: JSON.stringify(payload),
   })
@@ -167,13 +167,13 @@ export async function updateUserProfile(userId: string, payload: UserProfileUpda
 export async function getDraftHistory(userId: string, limit = 20) {
   const params = new URLSearchParams({ limit: String(limit) })
   return request<DraftHistoryResponse>(
-    `/api/v1/users/${encodeURIComponent(userId)}/history?${params.toString()}`,
+    `/users/${encodeURIComponent(userId)}/history?${params.toString()}`,
   )
 }
 
 export async function learnFromEdits(userId: string, payload: LearnFromEditsPayload) {
   return request<{ status: string }>(
-    `/api/v1/users/${encodeURIComponent(userId)}/history/learn`,
+    `/users/${encodeURIComponent(userId)}/history/learn`,
     {
       method: 'POST',
       body: JSON.stringify(payload),

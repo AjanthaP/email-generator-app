@@ -56,12 +56,54 @@ uvicorn src.api.main:app --reload --port 8001
 
 The default CORS settings allow requests from `localhost:5173` and `localhost:3000`, which match the typical Vite and Create React App dev servers.
 
+### React Frontend
+
+- Scaffold a React app in `frontend/` (Vite recommended) and configure it to call `http://localhost:8001/email/generate`.
+- Implement authentication pages and OAuth redirects using React Router (paths such as `/auth/callback`).
+- **Developer Mode Implementation:** See [REACT_DEVELOPER_MODE.md](REACT_DEVELOPER_MODE.md) for complete guide on adding step-by-step workflow visibility with UI components, API integration, and best practices.
+
+### Developer Mode (Per-step Outputs)
+
+**For React Frontend:** Complete implementation guide available in [REACT_DEVELOPER_MODE.md](REACT_DEVELOPER_MODE.md)
+
+**Python API:**
+```python
+from src.workflow.langgraph_flow import generate_email
+
+result = generate_email(
+    user_input="Write a follow-up email...",
+    developer_mode=True  # Enable step-by-step capture
+)
+# result["developer_trace"] contains ordered list of {agent, snapshot}
+```
+
+**REST API:**
+```bash
+curl -X POST http://localhost:8001/email/generate \
+  -H "Content-Type: application/json" \
+  -d '{"user_input": "Write a follow-up email...", "developer_mode": true}'
+```
+
+The trace shows post-step state for each agent (input_parser, intent_detector, draft_writer, tone_stylist, personalization, review, refinement, router) including `parsed_data`, `intent`, `draft`, `personalized_draft`, and `final_draft` fields.
+
+## Repository Layout
+
+Runtime vs non-runtime files are now separated clearly:
+
+## Repository Layout
+
 ### React Frontend Roadmap
 
 - Scaffold a React app in `frontend/` (Vite recommended) and configure it to call `http://localhost:8001/api/v1/email/generate`.
 - Implement authentication pages and OAuth redirects using React Router (paths such as `/auth/callback`).
 - Add a "Developer Mode" toggle to surface per-agent workflow trace returned by `generate_email(..., developer_mode=True)`.
 - Render each agent snapshot (parsed input, intent, draft variants, final draft) above the draft history panel.
+
+### Developer Mode (Per-step Outputs)
+
+- Streamlit UI: enable `Developer mode (show step-by-step)` in the sidebar before generating. The app will display an expandable panel listing each agent and the output it produced at that step.
+- Python API: call `generate_email(user_input, developer_mode=True)` (or use `execute_workflow(..., developer_mode=True)` if you need the full state). The returned dict includes `developer_trace`, an ordered list of `{ agent, snapshot }`.
+- Notes: The trace shows the post-step state (e.g., `parsed_data`, `intent`, `draft`, `personalized_draft`, `final_draft`). This reflects the LLM’s effect per step without exposing provider-internal metadata.
 
 ## Repository Layout
 

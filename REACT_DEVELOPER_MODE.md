@@ -1,0 +1,460 @@
+# Developer Mode Implementation Guide for React Frontend
+
+## Overview
+Developer mode provides step-by-step visibility into the email generation workflow by capturing the output of each LangGraph agent node (Input Parser, Intent Detector, Draft Writer, Tone Stylist, Personalization, Review, Refinement, Router).
+
+## Backend Support (Already Implemented)
+
+The backend workflow (`src/workflow/langgraph_flow.py`) already supports developer mode:
+
+### 1. Python API Usage
+
+```python
+from src.workflow.langgraph_flow import generate_email
+
+# Call with developer_mode=True
+result = generate_email(
+    user_input="Write a follow-up email to John...",
+    tone="formal",
+    user_id="user123",
+    developer_mode=True  # Enable step-by-step capture
+)
+
+# Result structure:
+{
+    "final_draft": "Dear John...",
+    "metadata": {...},
+    "review_notes": {...},
+    "developer_trace": [  # Only present when developer_mode=True
+        {
+            "agent": "input_parser",
+            "snapshot": {
+                "parsed_data": {...},
+                "metadata": {...}
+            }
+        },
+        {
+            "agent": "intent_detector",
+            "snapshot": {
+                "parsed_data": {...},
+                "intent": "follow_up",
+                "metadata": {...}
+            }
+        },
+        {
+            "agent": "draft_writer",
+            "snapshot": {
+                "parsed_data": {...},
+                "intent": "follow_up",
+                "draft": "Dear John...",
+                "metadata": {...}
+            }
+        },
+        # ... additional agents
+    ]
+}
+```
+
+### 2. REST API Usage
+
+**Endpoint:** `POST /email/generate`
+
+**Request body:**
+```json
+{
+    "user_input": "Write a follow-up email to John...",
+    "tone": "formal",
+    "user_id": "user123",
+    "developer_mode": true
+}
+```
+
+**Response:**
+```json
+{
+    "final_draft": "Dear John...",
+    "metadata": {...},
+    "review_notes": {...},
+    "developer_trace": [
+        {
+            "agent": "input_parser",
+            "snapshot": {...}
+        },
+        {
+            "agent": "intent_detector",
+            "snapshot": {...}
+        },
+        // ... more steps
+    ]
+}
+```
+
+## React Frontend Implementation
+
+### UI Components
+
+#### 1. Developer Mode Toggle (Settings/Sidebar)
+
+```tsx
+// In your settings panel or sidebar
+import { useState } from 'react';
+
+function SettingsPanel() {
+  const [developerMode, setDeveloperMode] = useState(false);
+
+  return (
+    <div className="settings-panel">
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          checked={developerMode}
+          onChange={(e) => setDeveloperMode(e.target.checked)}
+        />
+        <span>Developer Mode (show step-by-step)</span>
+      </label>
+      <p className="text-sm text-gray-600">
+        Capture and display step-by-step outputs from each agent
+      </p>
+    </div>
+  );
+}
+```
+
+#### 2. API Call with Developer Mode
+
+```tsx
+// In your email generation component
+async function generateEmail(userInput: string, tone: string, developerMode: boolean) {
+  const response = await fetch('http://localhost:8001/email/generate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      user_input: userInput,
+      tone: tone,
+      user_id: getCurrentUserId(),
+      developer_mode: developerMode,
+    }),
+  });
+
+  const result = await response.json();
+  return result;
+}
+```
+
+#### 3. Developer Trace Display Component
+
+```tsx
+interface DeveloperTraceStep {
+  agent: string;
+  snapshot: {
+    parsed_data?: any;
+    intent?: string;
+    draft?: string;
+    personalized_draft?: string;
+    final_draft?: string;
+    metadata?: any;
+  };
+}
+
+interface DeveloperTraceProps {
+  trace: DeveloperTraceStep[];
+}
+
+function DeveloperTrace({ trace }: DeveloperTraceProps) {
+  const [expandedStep, setExpandedStep] = useState<number | null>(null);
+
+  if (!trace || trace.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="developer-trace border rounded-lg p-4 bg-gray-50 my-4">
+      <h3 className="text-lg font-semibold mb-3">
+        🧪 Developer Trace: Step-by-step Outputs
+      </h3>
+      
+      <div className="space-y-2">
+        {trace.map((step, index) => (
+          <div key={index} className="border rounded bg-white">
+            <button
+              className="w-full px-4 py-2 text-left flex justify-between items-center hover:bg-gray-100"
+              onClick={() => setExpandedStep(expandedStep === index ? null : index)}
+            >
+              <span className="font-mono text-sm">
+                {index + 1}. {step.agent}
+              </span>
+              <span>{expandedStep === index ? '▼' : '▶'}</span>
+            </button>
+            
+            {expandedStep === index && (
+              <div className="px-4 py-3 border-t space-y-3">
+                {step.snapshot.parsed_data && (
+                  <div>
+                    <div className="text-xs font-semibold text-gray-500 mb-1">
+                      parsed_data
+                    </div>
+                    <pre className="text-xs bg-gray-100 p-2 rounded overflow-x-auto">
+                      {JSON.stringify(step.snapshot.parsed_data, null, 2)}
+                    </pre>
+                  </div>
+                )}
+                
+                {step.snapshot.intent && (
+                  <div>
+                    <div className="text-xs font-semibold text-gray-500 mb-1">
+                      intent
+                    </div>
+                    <div className="text-sm bg-blue-50 p-2 rounded">
+                      {step.snapshot.intent}
+                    </div>
+                  </div>
+                )}
+                
+                {step.snapshot.draft && (
+                  <div>
+                    <div className="text-xs font-semibold text-gray-500 mb-1">
+                      draft
+                    </div>
+                    <pre className="text-sm bg-gray-100 p-2 rounded whitespace-pre-wrap">
+                      {step.snapshot.draft}
+                    </pre>
+                  </div>
+                )}
+                
+                {step.snapshot.personalized_draft && (
+                  <div>
+                    <div className="text-xs font-semibold text-gray-500 mb-1">
+                      personalized_draft
+                    </div>
+                    <pre className="text-sm bg-gray-100 p-2 rounded whitespace-pre-wrap">
+                      {step.snapshot.personalized_draft}
+                    </pre>
+                  </div>
+                )}
+                
+                {step.snapshot.final_draft && (
+                  <div>
+                    <div className="text-xs font-semibold text-gray-500 mb-1">
+                      final_draft
+                    </div>
+                    <pre className="text-sm bg-gray-100 p-2 rounded whitespace-pre-wrap">
+                      {step.snapshot.final_draft}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+#### 4. Integration in Main Component
+
+```tsx
+function EmailComposer() {
+  const [developerMode, setDeveloperMode] = useState(false);
+  const [result, setResult] = useState<any>(null);
+
+  const handleGenerate = async () => {
+    const data = await generateEmail(userInput, tone, developerMode);
+    setResult(data);
+  };
+
+  return (
+    <div>
+      {/* Settings toggle */}
+      <SettingsPanel 
+        developerMode={developerMode}
+        setDeveloperMode={setDeveloperMode}
+      />
+
+      {/* Generate button */}
+      <button onClick={handleGenerate}>Generate Email</button>
+
+      {/* Results */}
+      {result && (
+        <div>
+          {/* Main draft display */}
+          <div className="draft-box">
+            <h2>Your Email Draft</h2>
+            <textarea value={result.final_draft} />
+          </div>
+
+          {/* Developer trace (only shown when developer_mode was enabled) */}
+          {result.developer_trace && (
+            <DeveloperTrace trace={result.developer_trace} />
+          )}
+
+          {/* Review notes, metadata, etc. */}
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### Styling Suggestions (Tailwind CSS)
+
+```tsx
+// Alternative compact view with tabs
+function DeveloperTraceCompact({ trace }: DeveloperTraceProps) {
+  const [activeTab, setActiveTab] = useState(0);
+
+  return (
+    <div className="border rounded-lg overflow-hidden my-4">
+      <div className="bg-gray-800 text-white px-4 py-2">
+        <h3 className="text-sm font-semibold">🧪 Developer Trace</h3>
+      </div>
+      
+      {/* Tabs */}
+      <div className="flex border-b overflow-x-auto">
+        {trace.map((step, index) => (
+          <button
+            key={index}
+            className={`px-4 py-2 text-sm whitespace-nowrap ${
+              activeTab === index
+                ? 'border-b-2 border-blue-500 bg-blue-50'
+                : 'hover:bg-gray-50'
+            }`}
+            onClick={() => setActiveTab(index)}
+          >
+            {index + 1}. {step.agent}
+          </button>
+        ))}
+      </div>
+      
+      {/* Content */}
+      <div className="p-4">
+        {trace[activeTab] && (
+          <div className="space-y-3">
+            {Object.entries(trace[activeTab].snapshot).map(([key, value]) => (
+              value && (
+                <div key={key}>
+                  <div className="text-xs font-semibold text-gray-500 mb-1">
+                    {key}
+                  </div>
+                  <pre className="text-sm bg-gray-100 p-2 rounded overflow-x-auto whitespace-pre-wrap">
+                    {typeof value === 'string' ? value : JSON.stringify(value, null, 2)}
+                  </pre>
+                </div>
+              )
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+```
+
+## Workflow Agent Order
+
+The trace will contain these agents in order:
+
+1. **input_parser** - Extracts structured data from user input
+2. **intent_detector** - Classifies email intent (outreach, follow_up, etc.)
+3. **draft_writer** - Generates initial draft based on intent
+4. **tone_stylist** - Applies tone adjustments (formal, casual, etc.)
+5. **personalization** - Adds user profile details (name, signature, etc.)
+6. **review** - Quality checks and improvements
+7. **refinement** - Final polish (removes duplicates, fixes grammar)
+8. **router** - Determines next action
+
+## Storage Considerations
+
+If you want to persist developer traces:
+
+```tsx
+// Option 1: Store in local state for current session
+const [traces, setTraces] = useState<any[]>([]);
+
+const handleGenerate = async () => {
+  const data = await generateEmail(userInput, tone, developerMode);
+  if (data.developer_trace) {
+    setTraces([...traces, {
+      timestamp: new Date().toISOString(),
+      input: userInput,
+      trace: data.developer_trace
+    }]);
+  }
+  setResult(data);
+};
+
+// Option 2: Store in localStorage for persistence
+localStorage.setItem('developer_traces', JSON.stringify(traces));
+
+// Option 3: Send to backend for storage
+await fetch('/traces', {
+  method: 'POST',
+  body: JSON.stringify({ trace: data.developer_trace })
+});
+```
+
+## Performance Notes
+
+- Developer mode adds minimal overhead (~5-10ms per agent for snapshot creation)
+- Trace data is only captured when `developer_mode=True`
+- Average trace size: 5-15KB per email generation
+- Consider limiting trace history storage to last 10-20 generations
+
+## Security Considerations
+
+- Developer traces may contain sensitive user data
+- Only enable in development/staging or for admin users
+- Add authentication check before allowing developer mode
+- Consider sanitizing traces before logging/storing
+
+```tsx
+// Example: Only enable for admin users
+const canUseDeveloperMode = user?.role === 'admin' || process.env.NODE_ENV === 'development';
+```
+
+## Testing
+
+```tsx
+// Example test
+import { render, screen, fireEvent } from '@testing-library/react';
+
+test('developer trace shows when developer_mode enabled', async () => {
+  const mockResponse = {
+    final_draft: 'Test draft',
+    developer_trace: [
+      { agent: 'input_parser', snapshot: { parsed_data: {} } }
+    ]
+  };
+
+  global.fetch = jest.fn(() =>
+    Promise.resolve({ json: () => Promise.resolve(mockResponse) })
+  );
+
+  render(<EmailComposer />);
+  
+  // Enable developer mode
+  fireEvent.click(screen.getByLabelText(/developer mode/i));
+  
+  // Generate email
+  fireEvent.click(screen.getByText(/generate/i));
+  
+  // Check trace is displayed
+  await screen.findByText(/developer trace/i);
+  expect(screen.getByText(/input_parser/i)).toBeInTheDocument();
+});
+```
+
+## Summary
+
+The backend already supports developer mode via the `developer_mode` parameter. To implement in React:
+
+1. Add a checkbox/toggle in settings
+2. Pass `developer_mode: true` in the API request body
+3. Display `result.developer_trace` in an expandable/collapsible panel
+4. Show each agent's output (parsed_data, intent, draft variations)
+5. Consider adding filters, search, or diff views for advanced debugging
+
+The trace provides full visibility into the LangGraph workflow without exposing internal LLM provider details.

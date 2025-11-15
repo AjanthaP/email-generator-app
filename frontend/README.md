@@ -1,7 +1,7 @@
 # React Frontend for AI Email Assistant
 
 This Vite + React + TypeScript project consumes the FastAPI backend exposed at
-`/api/v1/email/generate`.
+`/email/generate`.
 
 ## Getting started
 
