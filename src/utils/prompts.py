@@ -322,16 +322,16 @@ ORDERED REFINEMENT TASKS (perform in sequence; skip a task if not needed):
    - Do NOT alter the recipient name or greeting wording aside from removing duplicates.
 
 3. STRIP PLACEHOLDERS & TEMPLATE TOKENS
-   - Remove bracketed or angle/curly placeholder tokens like: [Your Name], [Company], {Company Name}, <Insert Value>, (Your Title), {{anything}}, <<anything>>.
+   - Remove bracketed or angle/curly placeholder tokens like: [Your Name], [Company], {{Company Name}}, <Insert Value>, (Your Title), {{{{anything}}}}, <<anything>>.
    - Remove obvious ALL-CAPS placeholder phrases of pattern: "YOUR ... HERE" or "INSERT ...".
    - After removal, ensure surrounding punctuation and spacing are clean.
 
 4. UNWRAP NESTED / REDUNDANT BRACKETS
-   - Convert [[[text]]], ((text)), {{text}}, <<text>>, [ [ text ] ], etc. to plain: text.
-   - Remove empty bracket pairs entirely ([], {}, (), <> alone).
+   - Convert [[[text]]], ((text)), {{{{text}}}}, <<text>>, [ [ text ] ], etc. to plain: text.
+   - Remove empty bracket pairs entirely ([], {{}}, (), <> alone).
 
 5. CLEAN ORPHANED BRACKETS & EXTRANEOUS PUNCTUATION/SPACES
-   - Remove leftover solitary [, ], (, ), {, }, <, > that do not enclose content.
+   - Remove leftover solitary [, ], (, ), {{, }}, <, > that do not enclose content.
    - Collapse multiple consecutive spaces to one.
    - Replace sequences of more than three periods with an ellipsis "…" (single Unicode ellipsis) unless part of a quoted excerpt.
 

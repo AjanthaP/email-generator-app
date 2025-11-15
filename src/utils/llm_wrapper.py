@@ -220,6 +220,17 @@ class LLMWrapper:
         error_msg: Optional[str] = None
         try:
             result = self.run_with_retries(bound, params, **retry_kwargs)
+            
+            # Log LLM response content (INFO level so it's visible in production logs)
+            if hasattr(result, 'content'):
+                content = result.content
+                preview = content[:200] + "..." if len(content) > 200 else content
+                logger.info(f"LLM Response ({len(content)} chars): {preview}")
+            elif isinstance(result, dict) and 'content' in result:
+                content = str(result['content'])
+                preview = content[:200] + "..." if len(content) > 200 else content
+                logger.info(f"LLM Response ({len(content)} chars): {preview}")
+            
             return result
         except Exception as exc:
             error_msg = str(exc)
