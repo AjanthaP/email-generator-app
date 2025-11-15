@@ -157,9 +157,12 @@ class Settings(BaseSettings):
     
     # MCP (Model Context Protocol) Configuration
     enable_mcp: bool = True
+    mcp_server_host: str = "localhost"
+    mcp_server_port: int = 8765
     mcp_server_name: str = "email-generator-mcp-server"
     mcp_server_version: str = "1.0.0"
     mcp_server_description: str = "MCP server for AI-powered email generation"
+    mcp_client_timeout: float = 30.0
     
     # Authentication Configuration
     enable_auth: bool = True

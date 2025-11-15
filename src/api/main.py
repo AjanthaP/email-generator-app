@@ -13,6 +13,7 @@ from fastapi.exceptions import RequestValidationError, HTTPException
 
 from src.utils.config import settings
 from .routers import auth, email, users, debug
+from .routers import mcp as mcp_router
 from .schemas import HealthCheckResponse
 
 logger = logging.getLogger(__name__)
@@ -204,6 +205,7 @@ async def debug_db_status():
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(email.router, prefix="/api/email", tags=["email"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
+app.include_router(mcp_router.router, prefix="/api", tags=["mcp"])
 if settings.debug:
     app.include_router(debug.router, prefix="/api/debug", tags=["debug"])
  
