@@ -9,6 +9,7 @@ or return the draft as-is if it meets quality standards.
 from typing import Dict, List, Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
+from src.utils.prompts import REVIEW_AGENT_PROMPT
 import re
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
 
@@ -43,27 +44,8 @@ class ReviewAgent:
         """
         self.llm = llm
         self.llm_wrapper = llm_wrapper or make_wrapper(llm)
-        self.review_prompt = ChatPromptTemplate.from_template("""
-        You are an expert email reviewer and editor. Analyze this email draft and improve it if needed.
-        
-        Email Draft:
-        {draft}
-        
-        Expected Tone: {tone}
-        Expected Intent: {intent}
-        
-        Review Criteria:
-        1. Tone Alignment: Does it match the expected tone?
-        2. Clarity: Is the message clear and well-structured?
-        3. Grammar: Are there any grammatical errors?
-        4. Completeness: Does it cover all necessary points?
-        5. Professional Quality: Is it polished and professional?
-        
-        If the email needs improvement, provide an improved version.
-        If it's already excellent, return it as-is.
-        
-        Return ONLY the final email draft (improved or original), no explanations.
-        """)
+        # Use shared review prompt
+        self.review_prompt = REVIEW_AGENT_PROMPT
     
     def review(self, draft: str, tone: str, intent: str) -> Dict:
         """
@@ -92,10 +74,18 @@ class ReviewAgent:
             
             # Use LLM to review and improve
             chain = self.review_prompt | self.llm
+            # Determine effective target length (fallback 170), floor to 25 if <10
+            target = getattr(self, "_workflow_length", None)
+            if target is None:
+                target = 170
+            elif isinstance(target, int) and target < 10:
+                target = 25
+
             response = self.llm_wrapper.invoke_chain(chain, {
                 "draft": draft,
                 "tone": tone,
-                "intent": intent
+                "intent": intent,
+                "target_length": target,
             })
             
             improved_draft = response.content.strip()
@@ -177,6 +167,8 @@ class ReviewAgent:
         # Use personalized_draft if available, otherwise use draft
         draft_to_review = state.get("personalized_draft", state.get("draft", ""))
         
+        # Surface workflow length to review()
+        self._workflow_length = state.get("length_preference")  # type: ignore[attr-defined]
         result = self.review(
             draft_to_review,
             state.get("tone", "formal"),

@@ -9,6 +9,7 @@ generation: recipient, purpose, key points, tone preference, and constraints.
 from typing import Dict, Any, Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
+from src.utils.prompts import INPUT_PARSER_PROMPT
 from pydantic import BaseModel, Field, field_validator, ValidationError
 import json
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
@@ -68,30 +69,8 @@ class InputParserAgent:
         """
         self.llm = llm
         self.llm_wrapper = llm_wrapper or make_wrapper(llm)
-        self.prompt = ChatPromptTemplate.from_template("""
-        You are an expert at understanding email composition requests.
-        
-        Extract the following information from the user's request:
-        1. Recipient name or title
-        2. Email purpose/intent
-        3. Key points that must be included
-        4. Tone preference (if mentioned): formal, casual, assertive, empathetic
-        5. Any constraints (length, specific requirements)
-        6. Additional context
-        
-        User Request: {user_input}
-        
-        Return your analysis as a JSON object with these fields:
-        - recipient_name
-        - recipient_email (if provided)
-        - email_purpose
-        - key_points (array)
-        - tone_preference (default: "formal")
-        - constraints (object with any limits)
-        - context (any background info)
-        
-        Be thorough but concise. If information isn't provided, use reasonable defaults.
-        """)
+        # Use shared prompt template from prompts.py
+        self.prompt = INPUT_PARSER_PROMPT
     
     def parse(self, user_input: str) -> ParsedInput:
         """

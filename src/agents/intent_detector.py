@@ -9,6 +9,7 @@ classification helps select the appropriate template and writing style.
 from typing import Dict, Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
+from src.utils.prompts import INTENT_DETECTOR_PROMPT
 from enum import Enum
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
 
@@ -56,19 +57,8 @@ class IntentDetectorAgent:
         self.llm = llm
         self.llm_wrapper = llm_wrapper or make_wrapper(llm)
         self.intents = [intent.value for intent in EmailIntent]
-        self.prompt = ChatPromptTemplate.from_template("""
-        You are an expert at classifying email intents.
-        
-        Based on the email purpose and context, classify the intent into ONE of these categories:
-        {intents}
-        
-        Email Purpose: {email_purpose}
-        Key Points: {key_points}
-        Context: {context}
-        
-        Respond with ONLY the intent category name (e.g., "outreach", "follow_up", etc.).
-        No explanation needed. Just the exact category name.
-        """)
+        # Use shared intent detector prompt
+        self.prompt = INTENT_DETECTOR_PROMPT
     
     def detect(self, parsed_data: Dict) -> str:
         """

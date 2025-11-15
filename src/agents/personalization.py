@@ -9,6 +9,7 @@ emails feel more authentic and tailored to the user.
 from typing import Dict, Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
+from src.utils.prompts import PERSONALIZATION_PROMPT
 import json
 import os
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
@@ -48,32 +49,8 @@ class PersonalizationAgent:
         self.profile_path = profile_path
         self.profiles = self._load_profiles()
         
-        self.prompt = ChatPromptTemplate.from_template("""
-        You are personalizing an email draft with user-specific information.
-        
-        Original Draft:
-        {draft}
-        
-        User Profile:
-        - Name: {user_name}
-        - Title: {user_title}
-        - Company: {user_company}
-        - Signature: {signature}
-        - Writing Style Notes: {style_notes}
-        
-        CRITICAL INSTRUCTIONS for personalization:
-        1. Add the signature at the end
-        2. ONLY use profile fields that have actual values (not empty strings)
-        3. If Name is provided and not empty, use it in the signature and body where appropriate
-        4. If Title is provided and not empty, use it where relevant (e.g., "I am [Title]")
-        5. If Company is provided and not empty, use it where relevant (e.g., "at [Company]")
-        6. NEVER generate placeholder text like "[Your Name]", "[Your Title]", "[Your Company]", or similar brackets
-        7. If a field is empty, simply omit that information - do not create placeholders
-        8. Match the user's preferred writing style
-        9. Keep the core message intact
-        
-        Return ONLY the personalized email with NO placeholder brackets.
-        """)
+        # Use shared personalization prompt
+        self.prompt = PERSONALIZATION_PROMPT
     
     def _load_profiles(self) -> Dict:
         """
@@ -188,13 +165,21 @@ class PersonalizationAgent:
                 sig_final = profile.get("signature", "\n\nBest regards")
 
             chain = self.prompt | self.llm
+            # Determine effective target length (fallback 170), floor to 25 if <10
+            target = getattr(self, "_workflow_length", None)
+            if target is None:
+                target = 170
+            elif isinstance(target, int) and target < 10:
+                target = 25
+
             response = self.llm_wrapper.invoke_chain(chain, {
                 "draft": draft,
                 "user_name": profile.get("user_name", ""),
                 "user_title": profile.get("user_title", ""),
                 "user_company": profile.get("user_company", ""),
                 "signature": sig_final,
-                "style_notes": profile.get("style_notes", "professional")
+                "style_notes": profile.get("style_notes", "professional"),
+                "target_length": target,
             })
             
             return response.content.strip()
@@ -219,6 +204,8 @@ class PersonalizationAgent:
         # Use styled_draft if available, otherwise use draft
         draft_to_personalize = state.get("styled_draft", state.get("draft", ""))
         
+        # Surface workflow length to personalize()
+        self._workflow_length = state.get("length_preference")  # type: ignore[attr-defined]
         personalized = self.personalize(
             draft_to_personalize,
             state.get("user_id", "default")

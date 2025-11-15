@@ -224,8 +224,13 @@ def execute_workflow(
     agents = create_agents(llm)
     order = default_graph_order()
 
-    # Initialize state with user_id and tone
+    # Initialize state with user_id, tone, and length preference (effective)
+    effective_length = None
+    if length_preference is not None and isinstance(length_preference, int):
+        effective_length = 25 if length_preference < 10 else length_preference
     state: EmailState = {"user_input": user_input, "tone": tone, "user_id": user_id}
+    if effective_length is not None:
+        state["length_preference"] = effective_length
     
     # Debug log
     print(f"[Workflow] Executing with user_id: {user_id}, tone: {tone}")
@@ -233,6 +238,10 @@ def execute_workflow(
     # Attach metadata indicating we're attempting to use the LLM by default.
     # If a quota fallback happens later, this will be updated to indicate stub.
     state["metadata"] = {"source": "llm", "model": settings.gemini_model, "requested_tone": tone}
+    if length_preference is not None:
+        state["metadata"]["requested_length_preference"] = length_preference
+        if effective_length is not None and effective_length != length_preference:
+            state["metadata"]["effective_length_preference"] = effective_length
 
     def _is_quota_error(exc: Exception) -> bool:
         """Heuristic to detect Gemini quota / 429 ResourceExhausted errors.
@@ -299,8 +308,8 @@ def execute_workflow(
             # Non-quota error: capture and continue to next agent (best-effort)
             # This keeps the workflow robust when a single agent fails.
 
-    if length_preference and length_preference > 0:
-        _apply_length_constraint(state, length_preference)
+    if effective_length and effective_length > 0:
+        _apply_length_constraint(state, effective_length)
 
     if developer_mode:
         state["developer_trace"] = developer_trace
@@ -359,11 +368,13 @@ __all__.append("generate_email")
 
 
 def _apply_length_constraint(state: EmailState, length_preference: int) -> None:
-    """Trim the draft/personalized/final drafts to roughly the requested word count.
+    """Apply adaptive length guidance with gentle trimming.
 
-    We interpret length_preference as a desired maximum word count (not characters).
-    The function preserves sentence boundaries where possible and appends an ellipsis
-    if meaningful content was truncated.
+    Behavior:
+    - Treat length_preference as target word count, not a hard cap.
+    - If draft length <= target * 1.05: leave unchanged (within tolerance).
+    - If draft length > target * 1.05: trim to target words, append ellipsis if needed.
+    - Annotate metadata with original/final counts and whether trimming happened.
     """
     try:
         max_words = max(1, int(length_preference))
@@ -376,17 +387,15 @@ def _apply_length_constraint(state: EmailState, length_preference: int) -> None:
         if k in state and isinstance(state[k], str) and state[k]:
             original = state[k]
             words = original.split()
-            if len(words) <= max_words:
-                # No trimming needed; annotate metadata
+            tolerance_cap = int(max_words * 1.05)
+            if len(words) <= tolerance_cap:
                 _annotate_length_metadata(state, original, len(words), max_words, trimmed=False)
                 return
             trimmed_words = words[:max_words]
             trimmed_text = " ".join(trimmed_words)
-            # Preserve final punctuation if present in original beyond cut
             if not trimmed_text.endswith(('.', '!', '?')) and original[len(trimmed_text):].strip():
                 trimmed_text += "…"
             state[k] = trimmed_text
-            # Propagate trimmed version to other draft keys if they exist
             for mirror_key in draft_key_order:
                 if mirror_key != k and mirror_key in state and isinstance(state[mirror_key], str):
                     state[mirror_key] = trimmed_text

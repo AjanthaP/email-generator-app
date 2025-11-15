@@ -5,53 +5,56 @@ These templates are used by LLM agents to generate structured outputs.
 
 from langchain.prompts import ChatPromptTemplate
 
-# Input Parser Prompt
-INPUT_PARSER_PROMPT = ChatPromptTemplate.from_template("""
-You are an expert at understanding email composition requests.
+# Input Parser Prompt (shared across InputParserAgent)
+INPUT_PARSER_PROMPT = ChatPromptTemplate.from_template(
+   """
+   You are an expert at understanding email composition requests.
 
-Extract the following information from the user's request:
-1. Recipient name or title
-2. Email purpose/intent
-3. Key points that must be included
-4. Tone preference (if mentioned): formal, casual, assertive, empathetic
-5. Any constraints (length, specific requirements)
-6. Additional context
+   Extract the following information from the user's request:
+   1. Recipient name or title
+   2. Email purpose/intent
+   3. Key points that must be included
+   4. Tone preference (if mentioned): formal, casual, assertive, empathetic
+   5. Any constraints (length, specific requirements)
+   6. Additional context
 
-User Request: {user_input}
+   User Request: {user_input}
 
-Return your analysis as a JSON object with these fields:
-- recipient_name
-- recipient_email (if provided)
-- email_purpose
-- key_points (array)
-- tone_preference (default: "formal")
-- constraints (object with any limits)
-- context (any background info)
+   Return your analysis as a JSON object with these fields:
+   - recipient_name
+   - recipient_email (if provided)
+   - email_purpose
+   - key_points (array)
+   - tone_preference (default: "formal")
+   - constraints (object with any limits)
+   - context (any background info)
 
-Be thorough but concise. If information isn't provided, use reasonable defaults.
-""")
+   Be thorough but concise. If information isn't provided, use reasonable defaults.
+   """
+)
 
-# Intent Detector Prompt
-INTENT_DETECTOR_PROMPT = ChatPromptTemplate.from_template("""
-You are an expert at classifying email intents.
+# Intent Detector Prompt (shared across IntentDetectorAgent)
+INTENT_DETECTOR_PROMPT = ChatPromptTemplate.from_template(
+   """
+   You are an expert at classifying email intents.
 
-Based on the email purpose and context, classify the intent into ONE of these categories:
-{intents}
+   Based on the email purpose and context, classify the intent into ONE of these categories:
+   {intents}
 
-Email Purpose: {email_purpose}
-Key Points: {key_points}
-Context: {context}
+   Email Purpose: {email_purpose}
+   Key Points: {key_points}
+   Context: {context}
 
-Respond with ONLY the intent category name (e.g., "outreach", "follow_up", etc.).
-No explanation needed.
-""")
+   Respond with ONLY the intent category name (e.g., "outreach", "follow_up", etc.).
+   No explanation needed. Just the exact category name.
+   """
+)
 
 # Draft Writer Prompts by Intent
-OUTREACH_PROMPT = """
-Write a professional outreach email with this structure:
+OUTREACH_PROMPT = """Write a professional outreach email with this structure:
 
-1. Personalized opening (reference recipient's work/company)
-2. Brief self-introduction
+1. Personalized opening (reference recipient's work/company if known)
+2. Brief self-introduction (generic if not provided)
 3. Clear value proposition
 4. Specific ask or next step
 5. Professional closing
@@ -61,11 +64,11 @@ Purpose: {purpose}
 Key Points: {key_points}
 Tone: {tone}
 
-Make it concise (150-200 words), engaging, and action-oriented.
+IMPORTANT: Do NOT use placeholder brackets like [Your Name], [Company Name], etc. If information is missing, write naturally without placeholders. Personalization occurs later.
+TARGET LENGTH: Aim for approximately {target_length} words (do not exceed by >10%).
 """
 
-FOLLOWUP_PROMPT = """
-Write a follow-up email that:
+FOLLOWUP_PROMPT = """Write a follow-up email that:
 
 1. References previous interaction/email
 2. Provides context reminder
@@ -78,11 +81,10 @@ Purpose: {purpose}
 Key Points: {key_points}
 Tone: {tone}
 
-Keep it brief (100-150 words) and non-pushy.
+TARGET LENGTH: About {target_length} words (concise, non-pushy).
 """
 
-THANKYOU_PROMPT = """
-Write a genuine thank you email that:
+THANKYOU_PROMPT = """Write a genuine thank you email that:
 
 1. Opens with sincere gratitude
 2. Specifically mentions what you're thanking them for
@@ -95,11 +97,10 @@ Purpose: {purpose}
 Key Points: {key_points}
 Tone: {tone}
 
-Make it warm and authentic (100-150 words).
+TARGET LENGTH: About {target_length} words (warm and authentic).
 """
 
-MEETING_REQUEST_PROMPT = """
-Write a meeting request email that:
+MEETING_REQUEST_PROMPT = """Write a meeting request email that:
 
 1. Clear subject line suggestion
 2. Brief context for the meeting
@@ -112,11 +113,10 @@ Purpose: {purpose}
 Key Points: {key_points}
 Tone: {tone}
 
-Be respectful and organized (150-200 words).
+TARGET LENGTH: About {target_length} words (organized, respectful).
 """
 
-APOLOGY_PROMPT = """
-Write a sincere apology email that:
+APOLOGY_PROMPT = """Write a sincere apology email that:
 
 1. Takes clear responsibility
 2. Acknowledges the impact
@@ -129,11 +129,10 @@ Purpose: {purpose}
 Key Points: {key_points}
 Tone: empathetic and professional
 
-Be genuine and concise (150-200 words).
+TARGET LENGTH: About {target_length} words (genuine and concise).
 """
 
-INFORMATION_REQUEST_PROMPT = """
-Write an information request email that:
+INFORMATION_REQUEST_PROMPT = """Write an information request email that:
 
 1. Polite opening
 2. Context for your request
@@ -146,84 +145,161 @@ Purpose: {purpose}
 Key Points: {key_points}
 Tone: {tone}
 
-Be clear and respectful (150-200 words).
+IMPORTANT: Do NOT use placeholder brackets. If information is not provided, write naturally.
+TARGET LENGTH: About {target_length} words (clear and respectful).
 """
 
-# Tone Stylist Prompt
-TONE_STYLIST_PROMPT = ChatPromptTemplate.from_template("""
-You are an expert at adjusting email tone while preserving the core message.
+# Additional templates added to support all intents used by DraftWriterAgent
+STATUS_UPDATE_PROMPT = """Write a professional status update email that:
 
-Original Draft:
-{draft}
+1. Clear opening about the update
+2. Current status/progress summary
+3. Key accomplishments or milestones
+4. Next steps or upcoming actions
+5. Call to action if needed
 
-Target Tone: {tone}
+Recipient: {recipient}
+Purpose: {purpose}
+Key Points: {key_points}
+Tone: {tone}
 
-Tone Guidelines:
-- Characteristics: {characteristics}
-- Vocabulary: {vocabulary}
-- Structure: {structure}
-- Greeting style: {greeting}
-- Closing style: {closing}
+TARGET LENGTH: About {target_length} words (concise and structured).
+"""
 
-Rewrite the email to match the target tone perfectly while:
-1. Keeping all key points and information
-2. Maintaining appropriate length
-3. Ensuring natural flow
-4. Matching the tone guidelines exactly
+INTRODUCTION_PROMPT = """Write a professional introduction email that:
 
-Return ONLY the rewritten email, no explanations.
-""")
+1. Warm, personalized opening
+2. Brief background about yourself
+3. How you learned about or were referred to the recipient
+4. Shared interests or mutual connections
+5. Soft ask or invitation to connect
 
-# Review Agent Prompt
-REVIEW_AGENT_PROMPT = ChatPromptTemplate.from_template("""
-You are an expert email reviewer. Analyze this email draft and improve it.
+Recipient: {recipient}
+Purpose: {purpose}
+Key Points: {key_points}
+Tone: {tone}
 
-Email Draft:
-{draft}
+TARGET LENGTH: About {target_length} words (genuine and engaging).
+"""
 
-Expected Tone: {tone}
-Expected Intent: {intent}
+NETWORKING_PROMPT = """Write a professional networking email that:
 
-Review Criteria:
-1. Tone Alignment: Does it match the expected tone?
-2. Clarity: Is the message clear and well-structured?
-3. Grammar: Are there any grammatical errors?
-4. Completeness: Does it cover all necessary points?
-5. Professional Quality: Is it polished and professional?
+1. Personalized compliment or reference
+2. Why you admire their work
+3. What you're doing and shared interests
+4. Suggested ways to stay connected
+5. Open invitation to coffee/call
 
-If the email needs improvement, provide an improved version.
-If it's already excellent, return it as-is.
+Recipient: {recipient}
+Purpose: {purpose}
+Key Points: {key_points}
+Tone: {tone}
 
-Return ONLY the final email draft (improved or original), no explanations.
-""")
+TARGET LENGTH: About {target_length} words (authentic and conversational).
+"""
 
-# Personalization Agent Prompt
-PERSONALIZATION_PROMPT = ChatPromptTemplate.from_template("""
-You are personalizing an email draft with user-specific information.
+COMPLAINT_PROMPT = """Write a professional complaint email that:
 
-Original Draft:
-{draft}
+1. Respectful, non-accusatory opening
+2. Clear description of the issue
+3. Impact or consequences
+4. Specific resolution requested
+5. Timeline and contact information
 
-User Profile:
-- Name: {user_name}
-- Title: {user_title}
-- Company: {user_company}
-- Signature: {signature}
-- Writing Style Notes: {style_notes}
+Recipient: {recipient}
+Purpose: {purpose}
+Key Points: {key_points}
+Tone: assertive and professional
 
-CRITICAL INSTRUCTIONS for personalization:
-1. Add the signature at the end
-2. ONLY use profile fields that have actual values (not empty strings)
-3. If Name is provided and not empty, use it in the signature and body where appropriate
-4. If Title is provided and not empty, use it where relevant (e.g., "I am [Title]")
-5. If Company is provided and not empty, use it where relevant (e.g., "at [Company]")
-6. NEVER generate placeholder text like "[Your Name]", "[Your Title]", "[Your Company]", or similar brackets
-7. If a field is empty, simply omit that information - do not create placeholders
-8. Match the user's preferred writing style
-9. Keep the core message intact
+TARGET LENGTH: About {target_length} words (firm but constructive).
+"""
 
-Return ONLY the personalized email with NO placeholder brackets.
-""")
+# Tone Stylist Prompt (shared across ToneStylistAgent)
+TONE_STYLIST_PROMPT = ChatPromptTemplate.from_template(
+   """
+   You are an expert at adjusting email tone while preserving the core message.
+
+   Original Draft:
+   {draft}
+
+   Target Tone: {tone}
+   Target Length: {target_length} words (stay within ±5%)
+
+   Tone Guidelines:
+   - Characteristics: {characteristics}
+   - Vocabulary: {vocabulary}
+   - Structure: {structure}
+   - Greeting style: {greeting}
+   - Closing style: {closing}
+
+   Rewrite the email to match the target tone perfectly while:
+   1. Keeping all key points and information
+   2. Keeping total length near the target length (do not exceed by more than ~5%)
+   3. Ensuring natural flow
+   4. Matching the tone guidelines exactly
+
+   Return ONLY the rewritten email, no explanations.
+   """
+)
+
+# Review Agent Prompt (shared across ReviewAgent)
+REVIEW_AGENT_PROMPT = ChatPromptTemplate.from_template(
+   """
+   You are an expert email reviewer and editor. Analyze this email draft and improve it if needed.
+
+   Email Draft:
+   {draft}
+
+   Expected Tone: {tone}
+   Expected Intent: {intent}
+   Target Length: {target_length} words (stay within ±5%)
+
+   Review Criteria:
+   1. Tone Alignment: Does it match the expected tone?
+   2. Clarity: Is the message clear and well-structured?
+   3. Grammar: Are there any grammatical errors?
+   4. Completeness: Does it cover all necessary points?
+   5. Professional Quality: Is it polished and professional?
+   6. Length: Keep total words near the target length; trim/condense if too long.
+
+   If the email needs improvement, provide an improved version within the target length budget.
+   If it's already excellent, return it as-is.
+
+   Return ONLY the final email draft (improved or original), no explanations.
+   """
+)
+
+# Personalization Agent Prompt (shared across PersonalizationAgent)
+PERSONALIZATION_PROMPT = ChatPromptTemplate.from_template(
+   """
+   You are personalizing an email draft with user-specific information.
+
+   Original Draft:
+   {draft}
+
+   User Profile:
+   - Name: {user_name}
+   - Title: {user_title}
+   - Company: {user_company}
+   - Signature: {signature}
+   - Writing Style Notes: {style_notes}
+
+   Target Length: {target_length} words (stay within ±5%)
+
+   CRITICAL INSTRUCTIONS for personalization:
+   1. Add the signature at the end
+   2. ONLY use profile fields that have actual values (not empty strings)
+   3. Use provided Name naturally in the body and signature
+   4. Use Title and Company only if non-empty
+   5. NEVER generate placeholder text like "[Your Name]" or bracketed tokens
+   6. Omit empty fields entirely
+   7. Match the user's preferred writing style
+   8. Keep the core message intact
+   9. Maintain the target length by condensing if necessary; do not significantly exceed it.
+
+   Return ONLY the personalized email with NO placeholder brackets.
+   """
+)
 
 # Refinement Agent Prompt
 REFINEMENT_AGENT_PROMPT = ChatPromptTemplate.from_template("""
