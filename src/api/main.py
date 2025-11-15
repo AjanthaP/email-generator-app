@@ -22,20 +22,17 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Startup and shutdown events for the FastAPI application."""
     # Startup
-    logger.info("Starting application...")
+    logger.info("=" * 60)
+    logger.info("Starting AI Email Assistant API...")
+    logger.info("=" * 60)
     
-    # Initialize database if DATABASE_URL is configured
+    # Log database configuration status (don't initialize yet - let it happen lazily)
     if settings.database_url:
-        try:
-            from src.db.database import init_db
-            init_db()
-            logger.info("✓ Database initialized successfully")
-        except Exception as e:
-            logger.error(f"✗ Failed to initialize database: {e}")
-            logger.warning("Application will use JSON file fallback for storage")
+        logger.info(f"DATABASE_URL configured: {settings.database_url.split('@')[-1] if '@' in settings.database_url else 'set'}")
+        logger.info("PostgreSQL database will be initialized on first use")
     else:
-        logger.warning("DATABASE_URL not configured - using JSON file storage")
-        logger.info("To enable PostgreSQL: Set DATABASE_URL environment variable")
+        logger.warning("⚠ DATABASE_URL not configured - using JSON file storage")
+        logger.info("To enable PostgreSQL: Set DATABASE_URL environment variable in Railway")
     
     yield
     
@@ -161,6 +158,43 @@ async def health_check() -> HealthCheckResponse:
         app_name=settings.app_name,
         version="1.0.0"
     )
+
+
+@app.get("/debug/db-status")
+async def debug_db_status():
+    """Debug endpoint to check database connection status."""
+    result = {
+        "database_url_configured": bool(settings.database_url),
+        "database_url_host": settings.database_url.split('@')[-1] if settings.database_url and '@' in settings.database_url else None,
+    }
+    
+    try:
+        from src.db.database import init_db, get_db_manager
+        
+        # Initialize database if not already done
+        try:
+            db_manager = get_db_manager()
+        except RuntimeError:
+            # Not initialized yet, initialize now
+            db_manager = init_db()
+            result["database_just_initialized"] = True
+        
+        result["database_initialized"] = True
+        result["engine_available"] = bool(db_manager.engine)
+        
+        # Try a simple query
+        with db_manager.get_db() as db:
+            from src.db.models import UserProfile
+            count = db.query(UserProfile).count()
+            result["database_connected"] = True
+            result["user_profiles_count"] = count
+    except Exception as e:
+        result["database_initialized"] = False
+        result["error"] = str(e)
+        import traceback
+        result["traceback"] = traceback.format_exc()
+    
+    return result
 
 
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])

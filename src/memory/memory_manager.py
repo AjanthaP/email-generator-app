@@ -52,13 +52,27 @@ class MemoryManager:
         """Check if database is available."""
         if self.db_session is not None:
             return True
+        
+        # First check if DATABASE_URL is configured
+        from src.utils.config import settings
+        if not settings.database_url:
+            logger.debug("DATABASE_URL not configured in settings")
+            return False
+        
+        # Try to get database manager (may not be initialized yet at import time)
         try:
             from src.db.database import get_db_manager
             db_manager = get_db_manager()
             if db_manager and db_manager.engine:
+                logger.info(f"Database available: {db_manager._sanitize_url(settings.database_url)}")
                 return True
+        except RuntimeError as e:
+            # Database not initialized yet - this is OK, will be available later
+            logger.debug(f"Database manager not initialized yet (will retry on first save): {e}")
+            # Return True if DATABASE_URL is set - we'll get the session when needed
+            return True
         except Exception as e:
-            logger.debug(f"Database not available: {e}")
+            logger.warning(f"Database connection error: {e}")
         return False
 
     def _get_db(self) -> Optional[Session]:
@@ -67,9 +81,11 @@ class MemoryManager:
             try:
                 from src.db.database import get_db_manager
                 db_manager = get_db_manager()
-                return db_manager.get_session()
+                session = db_manager.get_session()
+                logger.debug("Successfully acquired database session")
+                return session
             except Exception as e:
-                logger.warning(f"Could not get database session: {e}")
+                logger.error(f"Could not get database session: {e}")
                 return None
         return self.db_session
 
@@ -81,15 +97,23 @@ class MemoryManager:
             draft_data: Draft content and metadata
                 Expected keys: 'content', 'metadata' (optional), 'original_input' (optional)
         """
+        # Re-check database availability if it wasn't available during init
+        # (handles case where MemoryManager is created before database initialization)
+        if not self._use_db:
+            logger.debug("Re-checking database availability...")
+            self._use_db = self._check_db_available()
+        
         if self._use_db:
             try:
                 self._save_draft_db(user_id, draft_data)
+                logger.info(f"Draft saved to PostgreSQL for user {user_id}")
                 return
             except Exception as e:
-                logger.error(f"Failed to save draft to database: {e}")
+                logger.error(f"Failed to save draft to database: {e}", exc_info=True)
                 logger.info("Falling back to JSON file storage")
         
         # Fallback to JSON files
+        logger.info(f"Saving draft to JSON file for user {user_id}")
         self._save_draft_json(user_id, draft_data)
 
     def _save_draft_db(self, user_id: str, draft_data: Dict[str, Any]) -> None:
