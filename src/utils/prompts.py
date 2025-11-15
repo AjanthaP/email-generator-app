@@ -237,6 +237,7 @@ TONE_STYLIST_PROMPT = ChatPromptTemplate.from_template(
    2. Keeping total length near the target length (do not exceed by more than ~5%)
    3. Ensuring natural flow
    4. Matching the tone guidelines exactly
+   5. Do NOT change the greeting line or the recipient name; preserve them exactly as in the original draft
 
    Return ONLY the rewritten email, no explanations.
    """
@@ -261,6 +262,7 @@ REVIEW_AGENT_PROMPT = ChatPromptTemplate.from_template(
    4. Completeness: Does it cover all necessary points?
    5. Professional Quality: Is it polished and professional?
    6. Length: Keep total words near the target length; trim/condense if too long.
+   7. Recipient Safety: Do NOT change the greeting line or recipient name.
 
    If the email needs improvement, provide an improved version within the target length budget.
    If it's already excellent, return it as-is.
@@ -296,6 +298,7 @@ PERSONALIZATION_PROMPT = ChatPromptTemplate.from_template(
    7. Match the user's preferred writing style
    8. Keep the core message intact
    9. Maintain the target length by condensing if necessary; do not significantly exceed it.
+   10. Do NOT alter the greeting line or the recipient name; preserve them exactly as in the original draft. Never substitute the recipient with the sender's name.
 
    Return ONLY the personalized email with NO placeholder brackets.
    """

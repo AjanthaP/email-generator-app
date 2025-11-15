@@ -7,6 +7,7 @@ generation: recipient, purpose, key points, tone preference, and constraints.
 """
 
 from typing import Dict, Any, Optional
+import re
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from src.utils.prompts import INPUT_PARSER_PROMPT
@@ -106,6 +107,25 @@ class InputParserAgent:
             raw = content.strip()
             parsed_data = json.loads(raw) if raw else {}
 
+            # Heuristic: extract explicit recipient hint from prefixed lines
+            try:
+                recipient_hint = None
+                for ln in user_input.splitlines():
+                    s = ln.strip()
+                    if s.lower().startswith("recipient:"):
+                        recipient_hint = s.split(":", 1)[1].strip()
+                        break
+                    if s.lower().startswith("to:"):
+                        recipient_hint = s.split(":", 1)[1].strip()
+                        break
+                if recipient_hint:
+                    if not isinstance(parsed_data, dict):
+                        parsed_data = {}
+                    if not parsed_data.get("recipient_name") or str(parsed_data.get("recipient_name")).strip() in ("", "Recipient"):
+                        parsed_data["recipient_name"] = recipient_hint
+            except Exception:
+                pass
+
             # Defensive sanitation before model instantiation
             if not isinstance(parsed_data, dict):
                 parsed_data = {}
@@ -135,8 +155,22 @@ class InputParserAgent:
         Returns:
             ParsedInput: Default structure with basic extraction
         """
+        # Try to extract a recipient from prefixed lines
+        recipient = "Recipient"
+        try:
+            for ln in user_input.splitlines():
+                s = ln.strip()
+                if s.lower().startswith("recipient:"):
+                    recipient = s.split(":", 1)[1].strip() or "Recipient"
+                    break
+                if s.lower().startswith("to:"):
+                    recipient = s.split(":", 1)[1].strip() or "Recipient"
+                    break
+        except Exception:
+            recipient = "Recipient"
+
         return ParsedInput(
-            recipient_name="Recipient",
+            recipient_name=recipient,
             email_purpose=user_input[:200] if len(user_input) > 200 else user_input,
             key_points=[user_input] if len(user_input) < 100 else [user_input[:100]],
             tone_preference="formal",

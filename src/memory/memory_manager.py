@@ -228,9 +228,11 @@ class MemoryManager:
                 result.append({
                     "id": draft.id,
                     "content": draft.content,
+                    "draft": draft.content,  # Backward compatibility alias for frontend
                     "original_input": draft.original_input,
                     "metadata": draft.draft_metadata or {},
                     "created_at": draft.created_at.isoformat() if draft.created_at else None,
+                    "timestamp": draft.created_at.isoformat() if draft.created_at else None,  # Frontend expects this
                 })
             
             if not result:
@@ -265,9 +267,11 @@ class MemoryManager:
                                 {
                                     "id": d.id,
                                     "content": d.content,
+                                    "draft": d.content,  # Backward compatibility alias for frontend
                                     "original_input": d.original_input,
                                     "metadata": d.draft_metadata or {},
                                     "created_at": d.created_at.isoformat() if d.created_at else None,
+                                    "timestamp": d.created_at.isoformat() if d.created_at else None,
                                 }
                                 for d in drafts
                             ]
@@ -299,6 +303,16 @@ class MemoryManager:
         try:
             with open(user_drafts_file, "r") as f:
                 drafts = json.load(f)
+            
+            # Normalize: ensure both 'content' and 'draft' keys exist
+            for entry in drafts:
+                if "content" in entry and "draft" not in entry:
+                    entry["draft"] = entry["content"]
+                elif "draft" in entry and "content" not in entry:
+                    entry["content"] = entry["draft"]
+                # Also add timestamp alias if created_at exists
+                if "created_at" in entry and "timestamp" not in entry:
+                    entry["timestamp"] = entry["created_at"]
             
             # Return most recent first
             drafts = list(reversed(drafts))

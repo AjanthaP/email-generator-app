@@ -13,6 +13,7 @@ from src.utils.prompts import PERSONALIZATION_PROMPT
 import json
 import os
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
+import re
 
 
 class PersonalizationAgent:
@@ -182,7 +183,25 @@ class PersonalizationAgent:
                 "target_length": target,
             })
             
-            return response.content.strip()
+            personalized = response.content.strip()
+
+            # Safety check: preserve original greeting/recipient if model drifted
+            try:
+                # Extract original greeting line
+                orig_greet = self._extract_greeting_line(draft)
+                new_greet = self._extract_greeting_line(personalized)
+                if orig_greet and new_greet:
+                    # Extract names for comparison
+                    orig_name = self._extract_name_from_greeting(orig_greet)
+                    new_name = self._extract_name_from_greeting(new_greet)
+                    user_name_ci = (user_name or "").strip().lower()
+                    if user_name_ci and new_name and new_name.lower() == user_name_ci and orig_name and orig_name.lower() != user_name_ci:
+                        # Replace the greeting line in the personalized text with the original greeting
+                        personalized = personalized.replace(new_greet, orig_greet, 1)
+            except Exception:
+                pass
+
+            return personalized
             
         except Exception as e:
             print(f"Error personalizing draft: {e}")
@@ -211,3 +230,19 @@ class PersonalizationAgent:
             state.get("user_id", "default")
         )
         return {"personalized_draft": personalized}
+
+    def _extract_greeting_line(self, text: str) -> Optional[str]:
+        """Return the first greeting line like 'Dear X,' or 'Hi X,' if present."""
+        for line in text.splitlines():
+            s = line.strip()
+            if re.match(r"^(dear|hi|hello)\b", s, flags=re.IGNORECASE):
+                # Normalize to include trailing comma if present in the line
+                return line
+        return None
+
+    def _extract_name_from_greeting(self, greeting_line: str) -> Optional[str]:
+        """Extract the name part from a greeting line (e.g., 'Dear Jane,' -> 'Jane')."""
+        m = re.search(r"^(?:\s*)(dear|hi|hello)\s+([^,\n]+)", greeting_line, flags=re.IGNORECASE)
+        if m:
+            return m.group(2).strip()
+        return None
