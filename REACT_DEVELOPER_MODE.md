@@ -1,35 +1,49 @@
-# Developer Mode Implementation Guide for React Frontend
+# Developer Mode Implementation Guide
 
-## Overview
-Developer mode provides step-by-step visibility into the email generation workflow by capturing the output of each LangGraph agent node (Input Parser, Intent Detector, Draft Writer, Tone Stylist, Personalization, Review, Refinement, Router).
+## ✅ Status: FULLY IMPLEMENTED
 
-## Backend Support (Already Implemented)
+Developer mode is **now fully implemented** in both backend and API. It provides step-by-step visibility into the email generation workflow by capturing the output of each LangGraph agent.
 
-The backend workflow (`src/workflow/langgraph_flow.py`) already supports developer mode:
+---
 
-### 1. Python API Usage
+## How to Use Developer Mode
 
-```python
-from src.workflow.langgraph_flow import generate_email
+### REST API Usage
 
-# Call with developer_mode=True
-result = generate_email(
-    user_input="Write a follow-up email to John...",
-    tone="formal",
-    user_id="user123",
-    developer_mode=True  # Enable step-by-step capture
-)
+**Endpoint:** `POST /email/generate`
 
-# Result structure:
+**Request with developer_mode:**
+```json
 {
-    "final_draft": "Dear John...",
+    "prompt": "generate test email to check smtp working",
+    "user_id": "ajantha22ma_gmail_com",
+    "tone": "casual",
+    "length_preference": 150,
+    "save_to_history": true,
+    "use_stub": false,
+    "reset_context": false,
+    "developer_mode": true
+}
+```
+
+**Response includes developer_trace:**
+```json
+{
+    "draft": "Hey there...",
     "metadata": {...},
     "review_notes": {...},
-    "developer_trace": [  # Only present when developer_mode=True
+    "saved": true,
+    "metrics": {...},
+    "context_mode": "contextual",
+    "developer_trace": [
         {
             "agent": "input_parser",
             "snapshot": {
-                "parsed_data": {...},
+                "parsed_data": {
+                    "recipient_name": "...",
+                    "email_purpose": "...",
+                    "key_points": [...]
+                },
                 "metadata": {...}
             }
         },
@@ -37,7 +51,7 @@ result = generate_email(
             "agent": "intent_detector",
             "snapshot": {
                 "parsed_data": {...},
-                "intent": "follow_up",
+                "intent": "status_update",
                 "metadata": {...}
             }
         },
@@ -45,55 +59,179 @@ result = generate_email(
             "agent": "draft_writer",
             "snapshot": {
                 "parsed_data": {...},
-                "intent": "follow_up",
-                "draft": "Dear John...",
+                "intent": "status_update",
+                "draft": "Initial draft content...",
                 "metadata": {...}
             }
         },
-        # ... additional agents
+        {
+            "agent": "tone_stylist",
+            "snapshot": {
+                "draft": "Tone-adjusted draft...",
+                "tone": "casual",
+                "metadata": {...}
+            }
+        },
+        {
+            "agent": "personalization",
+            "snapshot": {
+                "personalized_draft": "Personalized draft with signature...",
+                "metadata": {...}
+            }
+        },
+        {
+            "agent": "review",
+            "snapshot": {
+                "final_draft": "Reviewed and improved draft...",
+                "metadata": {...}
+            }
+        },
+        {
+            "agent": "refinement",
+            "snapshot": {
+                "final_draft": "Refined final draft...",
+                "metadata": {...}
+            }
+        },
+        {
+            "agent": "router",
+            "snapshot": {
+                "final_draft": "...",
+                "metadata": {...}
+            }
+        }
     ]
 }
 ```
 
-### 2. REST API Usage
+### Python API Usage
 
-**Endpoint:** `POST /email/generate`
+```python
+from src.workflow.langgraph_flow import generate_email
 
-**Request body:**
-```json
-{
-    "user_input": "Write a follow-up email to John...",
-    "tone": "formal",
-    "user_id": "user123",
-    "developer_mode": true
-}
+result = generate_email(
+    user_input="Write a follow-up email to John...",
+    tone="formal",
+    user_id="user123",
+    developer_mode=True  # Enable step-by-step capture
+)
+
+# Access the trace
+for step in result.get("developer_trace", []):
+    print(f"Agent: {step['agent']}")
+    print(f"Output: {step['snapshot']}")
 ```
 
-**Response:**
-```json
-{
-    "final_draft": "Dear John...",
-    "metadata": {...},
-    "review_notes": {...},
-    "developer_trace": [
-        {
-            "agent": "input_parser",
-            "snapshot": {...}
-        },
-        {
-            "agent": "intent_detector",
-            "snapshot": {...}
-        },
-        // ... more steps
-    ]
-}
+---
+
+## Backend Implementation Details
+
+### Request Schema (schemas.py)
+```python
+class EmailGenerateRequest(BaseModel):
+    prompt: str
+    user_id: str = "default"
+    tone: Optional[str] = None
+    recipient: Optional[str] = None
+    recipient_email: Optional[str] = None
+    length_preference: Optional[int] = None
+    save_to_history: bool = True
+    use_stub: bool = False
+    reset_context: bool = False
+    developer_mode: bool = False  # ✅ ADDED
 ```
+
+### Response Schema (schemas.py)
+```python
+class EmailGenerateResponse(BaseModel):
+    draft: str
+    metadata: Dict[str, Any]
+    review_notes: Dict[str, Any]
+    saved: bool
+    metrics: Dict[str, Any]
+    context_mode: str
+    developer_trace: Optional[List[Dict[str, Any]]] = None  # ✅ ADDED
+```
+
+### API Endpoint (routers/email.py)
+```python
+@router.post("/generate", response_model=EmailGenerateResponse)
+async def generate_email(payload: EmailGenerateRequest):
+    # ...
+    state = await run_in_threadpool(
+        execute_workflow,
+        full_prompt,
+        use_stub=payload.use_stub,
+        user_id=user_id,
+        developer_mode=payload.developer_mode,  # ✅ PASSED TO WORKFLOW
+    )
+    
+    developer_trace = state.get("developer_trace") if payload.developer_mode else None
+    
+    return EmailGenerateResponse(
+        draft=draft,
+        # ... other fields
+        developer_trace=developer_trace,  # ✅ INCLUDED IN RESPONSE
+    )
+```
+
+### Workflow Implementation (langgraph_flow.py)
+```python
+def execute_workflow(
+    user_input: str,
+    llm: Optional[ChatGoogleGenerativeAI] = None,
+    use_stub: Optional[bool] = None,
+    user_id: str = "default",
+    developer_mode: bool = False  # ✅ PARAMETER
+) -> EmailState:
+    # ...
+    developer_trace: list[dict[str, Any]] = []
+    
+    for node_name in order:
+        agent = agents.get(node_name)
+        updates = agent(state) or {}
+        
+        # Merge updates
+        for k, v in updates.items():
+            state[k] = v
+        
+        if developer_mode:
+            # ✅ CAPTURE SNAPSHOT AFTER EACH AGENT
+            snapshot = {k: state.get(k) for k in snapshot_keys if k in state}
+            developer_trace.append({
+                "agent": node_name,
+                "snapshot": snapshot
+            })
+    
+    if developer_mode:
+        state["developer_trace"] = developer_trace  # ✅ ADD TO STATE
+    
+    return state
+```
+
+---
+
+## Workflow Agent Order
+
+The trace captures these agents in sequence:
+
+1. **input_parser** - Extracts structured data from user input
+2. **intent_detector** - Classifies email intent (outreach, follow_up, thank_you, etc.)
+3. **draft_writer** - Generates initial draft based on intent
+4. **tone_stylist** - Applies tone adjustments (formal, casual, etc.)
+5. **personalization** - Adds user profile details (name, signature, company)
+6. **review** - Quality checks and improvements
+7. **refinement** - Final polish (removes duplicates, fixes grammar)
+8. **router** - Determines next action
+
+Each step's snapshot includes all relevant state keys:
+- `parsed_data`, `intent`, `draft`, `tone`, `personalized_draft`, `final_draft`, `metadata`
+
+---
 
 ## React Frontend Implementation
 
-### UI Components
-
-#### 1. Developer Mode Toggle (Settings/Sidebar)
+### 1. Developer Mode Toggle (Settings)
 
 ```tsx
 // In your settings panel or sidebar
@@ -110,7 +248,7 @@ function SettingsPanel() {
           checked={developerMode}
           onChange={(e) => setDeveloperMode(e.target.checked)}
         />
-        <span>Developer Mode (show step-by-step)</span>
+        <span>Developer Mode (show LLM workflow trace)</span>
       </label>
       <p className="text-sm text-gray-600">
         Capture and display step-by-step outputs from each agent
@@ -120,21 +258,27 @@ function SettingsPanel() {
 }
 ```
 
-#### 2. API Call with Developer Mode
+### 2. API Call with Developer Mode
 
 ```tsx
 // In your email generation component
-async function generateEmail(userInput: string, tone: string, developerMode: boolean) {
-  const response = await fetch('http://localhost:8001/email/generate', {
+async function generateEmail(
+  prompt: string,
+  tone: string,
+  userId: string,
+  developerMode: boolean
+) {
+  const response = await fetch('https://your-backend.railway.app/email/generate', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      user_input: userInput,
+      prompt: prompt,
+      user_id: userId,
       tone: tone,
-      user_id: getCurrentUserId(),
-      developer_mode: developerMode,
+      save_to_history: true,
+      developer_mode: developerMode,  // ✅ PASS THIS PARAMETER
     }),
   });
 
@@ -143,7 +287,7 @@ async function generateEmail(userInput: string, tone: string, developerMode: boo
 }
 ```
 
-#### 3. Developer Trace Display Component
+### 3. Developer Trace Display Component
 
 ```tsx
 interface DeveloperTraceStep {

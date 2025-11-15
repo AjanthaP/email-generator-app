@@ -45,6 +45,7 @@ async def generate_email(payload: EmailGenerateRequest) -> EmailGenerateResponse
             full_prompt,
             use_stub=payload.use_stub,
             user_id=user_id,
+            developer_mode=payload.developer_mode,
         )
     except Exception as exc:  # pylint: disable=broad-exception-caught
         raise HTTPException(status_code=500, detail=f"Workflow error: {exc}") from exc
@@ -98,6 +99,8 @@ async def generate_email(payload: EmailGenerateRequest) -> EmailGenerateResponse
     if last_call:
         usage_summary["last_call"] = last_call
 
+    developer_trace = state.get("developer_trace") if payload.developer_mode else None
+
     return EmailGenerateResponse(
         draft=draft,
         metadata={k: v for k, v in metadata.items() if v is not None},
@@ -105,4 +108,5 @@ async def generate_email(payload: EmailGenerateRequest) -> EmailGenerateResponse
         saved=saved,
         metrics=usage_summary,
         context_mode=context_mode,
+        developer_trace=developer_trace,
     )

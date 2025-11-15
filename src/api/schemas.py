@@ -29,6 +29,10 @@ class EmailGenerateRequest(BaseModel):
         default=False,
         description="If true, clear stored history before running the workflow"
     )
+    developer_mode: bool = Field(
+        default=False,
+        description="If true, return detailed LLM workflow trace for debugging"
+    )
 
 
 class EmailGenerateResponse(BaseModel):
@@ -40,6 +44,10 @@ class EmailGenerateResponse(BaseModel):
     context_mode: str = Field(
         default="contextual",
         description="Indicates whether the draft used prior context or started fresh",
+    )
+    developer_trace: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description="Detailed workflow trace showing LLM outputs at each agent step (only when developer_mode=true)"
     )
 
 
