@@ -185,7 +185,7 @@ def _generate_stub_state(user_input: str, tone: str = "formal") -> EmailState:
     return state
 
 
-def execute_workflow(user_input: str, llm: Optional[ChatGoogleGenerativeAI] = None, use_stub: Optional[bool] = None, user_id: str = "default", developer_mode: bool = False) -> EmailState:
+def execute_workflow(user_input: str, llm: Optional[ChatGoogleGenerativeAI] = None, use_stub: Optional[bool] = None, user_id: str = "default", tone: str = "formal", developer_mode: bool = False) -> EmailState:
     """Execute the email workflow sequentially and return the final state.
 
     If `use_stub` is True, the function will generate a stubbed state without calling the LLMs.
@@ -196,6 +196,7 @@ def execute_workflow(user_input: str, llm: Optional[ChatGoogleGenerativeAI] = No
         llm: Optional LLM instance to use
         use_stub: Whether to use stub mode (no LLM calls)
         user_id: User ID for profile personalization (default: "default")
+        tone: Desired tone for the email (formal, casual, assertive, empathetic)
     """
     if use_stub is None:
         use_stub = _detect_no_gemini_flag()
@@ -203,7 +204,7 @@ def execute_workflow(user_input: str, llm: Optional[ChatGoogleGenerativeAI] = No
     if use_stub:
         # Return a stubbed state for local testing without hitting Gemini
         # IMPORTANT: Return early BEFORE creating any LLM instance
-        return _generate_stub_state(user_input)
+        return _generate_stub_state(user_input, tone=tone)
 
     # Only create LLM if we're NOT using stub mode
     if llm is None:
@@ -212,15 +213,15 @@ def execute_workflow(user_input: str, llm: Optional[ChatGoogleGenerativeAI] = No
     agents = create_agents(llm)
     order = default_graph_order()
 
-    # Initialize state with user_id
-    state: EmailState = {"user_input": user_input, "tone": "formal", "user_id": user_id}
+    # Initialize state with user_id and tone
+    state: EmailState = {"user_input": user_input, "tone": tone, "user_id": user_id}
     
     # Debug log
-    print(f"[Workflow] Executing with user_id: {user_id}")
+    print(f"[Workflow] Executing with user_id: {user_id}, tone: {tone}")
 
     # Attach metadata indicating we're attempting to use the LLM by default.
     # If a quota fallback happens later, this will be updated to indicate stub.
-    state["metadata"] = {"source": "llm", "model": settings.gemini_model}
+    state["metadata"] = {"source": "llm", "model": settings.gemini_model, "requested_tone": tone}
 
     def _is_quota_error(exc: Exception) -> bool:
         """Heuristic to detect Gemini quota / 429 ResourceExhausted errors.
@@ -314,7 +315,7 @@ def generate_email(user_input: str, tone: str = "formal", use_stub: Optional[boo
             - metadata: dict (source/model/fallback info)
             - review_notes: optional dict of agent-level errors/fallback reasons
     """
-    state = execute_workflow(user_input, use_stub=use_stub, user_id=user_id, developer_mode=developer_mode)
+    state = execute_workflow(user_input, use_stub=use_stub, user_id=user_id, tone=tone, developer_mode=developer_mode)
     # Choose best available draft key
     final = state.get("final_draft") or state.get("personalized_draft") or state.get("styled_draft") or state.get("draft") or ""
     result = {

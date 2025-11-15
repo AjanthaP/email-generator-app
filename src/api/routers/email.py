@@ -45,6 +45,7 @@ async def generate_email(payload: EmailGenerateRequest) -> EmailGenerateResponse
             full_prompt,
             use_stub=payload.use_stub,
             user_id=user_id,
+            tone=payload.tone or "formal",
             developer_mode=payload.developer_mode,
         )
     except Exception as exc:  # pylint: disable=broad-exception-caught
@@ -61,10 +62,12 @@ async def generate_email(payload: EmailGenerateRequest) -> EmailGenerateResponse
         raise HTTPException(status_code=502, detail="Workflow did not return a draft")
 
     metadata: Dict[str, Any] = state.get("metadata", {})
+    # Ensure tone in metadata reflects what was actually requested and processed
+    final_tone = payload.tone or "formal"
     metadata.update(
         {
             "intent": state.get("intent"),
-            "tone": state.get("tone", payload.tone),
+            "tone": final_tone,
             "recipient": state.get("recipient", payload.recipient),
             "model": metadata.get("model") or metadata.get("fallback_from_model"),
             "source": metadata.get("source", "llm"),
