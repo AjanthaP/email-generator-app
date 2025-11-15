@@ -82,7 +82,12 @@ async def generate_email(payload: EmailGenerateRequest) -> EmailGenerateResponse
         try:
             _memory_manager.save_draft(
                 user_id,
-                {"draft": draft, "metadata": metadata},
+                {
+                    "content": draft,
+                    "draft": draft,  # For backward compatibility
+                    "metadata": metadata,
+                    "original_input": payload.prompt
+                },
             )
             saved = True
         except Exception:  # pylint: disable=broad-exception-caught

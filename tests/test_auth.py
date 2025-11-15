@@ -1,5 +1,4 @@
-"""
-Unit tests for Authentication Module.
+"""Unit tests for Authentication Module.
 
 Run with: pytest tests/test_auth.py
 """
@@ -28,84 +27,55 @@ def auth_manager(temp_dir):
 
 class TestUserManager:
     """Test UserManager functionality."""
-    
+
     def test_register_user(self, temp_dir):
-        """Test user registration."""
         users_file = os.path.join(temp_dir, "users.json")
         user_mgr = UserManager(users_file)
-        
         result = user_mgr.register_user(
-            email="test@example.com",
-            password="TestPass123",
-            full_name="Test User"
+            email="test@example.com", password="TestPass123", full_name="Test User"
         )
-        
         assert result["success"] is True
         assert "user_id" in result
-    
+
     def test_register_duplicate_email(self, temp_dir):
-        """Test that duplicate email raises error."""
         users_file = os.path.join(temp_dir, "users.json")
         user_mgr = UserManager(users_file)
-        
-        user_mgr.register_user("test@example.com", "Pass123", "User One")
-        
+        user_mgr.register_user("test@example.com", "Pass1234", "User One")
         with pytest.raises(ValueError, match="already exists"):
-            user_mgr.register_user("test@example.com", "Pass456", "User Two")
-    
+            user_mgr.register_user("test@example.com", "Pass45678", "User Two")
+
     def test_short_password(self, temp_dir):
-        """Test that short password raises error."""
         users_file = os.path.join(temp_dir, "users.json")
         user_mgr = UserManager(users_file)
-        
         with pytest.raises(ValueError, match="at least 8 characters"):
             user_mgr.register_user("test@example.com", "short", "Test User")
-    
+
     def test_verify_credentials(self, temp_dir):
-        """Test credential verification."""
         users_file = os.path.join(temp_dir, "users.json")
         user_mgr = UserManager(users_file)
-        
         user_mgr.register_user("test@example.com", "TestPass123", "Test User")
-        
-        # Correct credentials
         assert user_mgr.verify_credentials("test@example.com", "TestPass123") is True
-        
-        # Wrong password
         assert user_mgr.verify_credentials("test@example.com", "WrongPass") is False
-        
-        # Non-existent user
-        assert user_mgr.verify_credentials("nobody@example.com", "Pass123") is False
-    
+        assert user_mgr.verify_credentials("nobody@example.com", "Pass1234") is False
+
     def test_get_user(self, temp_dir):
-        """Test getting user information."""
         users_file = os.path.join(temp_dir, "users.json")
         user_mgr = UserManager(users_file)
-        
-        result = user_mgr.register_user("test@example.com", "Pass123", "Test User")
+        user_mgr.register_user("test@example.com", "Pass1234", "Test User")
         user = user_mgr.get_user("test@example.com")
-        
         assert user is not None
         assert user["email"] == "test@example.com"
         assert user["full_name"] == "Test User"
-        assert "password_hash" not in user  # Should not expose sensitive data
+        assert "password_hash" not in user
         assert "salt" not in user
-    
+
     def test_change_password(self, temp_dir):
-        """Test password change."""
         users_file = os.path.join(temp_dir, "users.json")
         user_mgr = UserManager(users_file)
-        
         user_mgr.register_user("test@example.com", "OldPass123", "Test User")
-        
-        # Change password
         success = user_mgr.change_password("test@example.com", "OldPass123", "NewPass456")
         assert success is True
-        
-        # Verify old password doesn't work
         assert user_mgr.verify_credentials("test@example.com", "OldPass123") is False
-        
-        # Verify new password works
         assert user_mgr.verify_credentials("test@example.com", "NewPass456") is True
 
 
@@ -237,22 +207,12 @@ class TestAuthManager:
             auth_manager.require_auth("invalid_token")
     
     def test_require_role(self, auth_manager):
-        """Test require_role functionality."""
-        # Register regular user
-        auth_manager.register("user@example.com", "Pass123", "User", role="user")
-        result = auth_manager.login("user@example.com", "Pass123")
-        user_token = result["token"]
-        
-        # Register admin
-        auth_manager.register("admin@example.com", "Pass123", "Admin", role="admin")
-        result = auth_manager.login("admin@example.com", "Pass123")
-        admin_token = result["token"]
-        
-        # Admin can access admin role
+        auth_manager.register("user@example.com", "Pass1234", "User", role="user")
+        user_token = auth_manager.login("user@example.com", "Pass1234")["token"]
+        auth_manager.register("admin@example.com", "Pass1234", "Admin", role="admin")
+        admin_token = auth_manager.login("admin@example.com", "Pass1234")["token"]
         admin = auth_manager.require_role(admin_token, "admin")
         assert admin["role"] == "admin"
-        
-        # User cannot access admin role
         with pytest.raises(ValueError, match="Role 'admin' required"):
             auth_manager.require_role(user_token, "admin")
     

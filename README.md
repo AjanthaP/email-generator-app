@@ -63,18 +63,28 @@ The default CORS settings allow requests from `localhost:5173` and `localhost:30
 - Add a "Developer Mode" toggle to surface per-agent workflow trace returned by `generate_email(..., developer_mode=True)`.
 - Render each agent snapshot (parsed input, intent, draft variants, final draft) above the draft history panel.
 
-## Files created
-- `src/` — source package
-- `tests/` — test package
-- `data/templates/` — email templates
-- `frontend/` — React frontend application
-- `requirements.txt`, `.env.example`, `.gitignore`
-- **Railway deployment files:**
-  - `Dockerfile` — Container configuration
-  - `railway.json` — Railway deployment settings
-  - `.dockerignore` — Docker build exclusions
-  - `start.py` — Production startup script
-  - `RAILWAY_DEPLOYMENT.md` — Deployment guide
+## Repository Layout
+
+Runtime vs non-runtime files are now separated clearly:
+
+| Path | Purpose |
+|------|---------|
+| `src/` | Production backend source (FastAPI, agents, workflow) |
+| `tests/` | Pytest test suite (unit & integration) |
+| `scripts/diagnostics/` | One-off environment & data inspection scripts (not deployed) |
+| `scripts/migration/` | Data migration helpers (placeholder) |
+| `data/` | Local JSON fallback storage & templates |
+| `frontend/` | React application (not included in this repository if external) |
+| `Dockerfile`, `railway.json`, `.dockerignore`, `start.py` | Deployment artefacts for Railway |
+| `README.md`, `RAILWAY_DEPLOYMENT.md` | Documentation |
+
+To run a diagnostic script (local only):
+```bash
+python scripts/diagnostics/check_drafts.py <user_id>
+python scripts/diagnostics/test_draft_history.py
+python scripts/diagnostics/database_url_fix.py
+```
+These scripts must NOT be invoked from production containers; they are excluded from runtime logic.
 
 ## 🚢 Deployment
 

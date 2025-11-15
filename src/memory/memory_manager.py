@@ -39,12 +39,27 @@ class MemoryManager:
         self.profiles_dir.mkdir(exist_ok=True)
         
         self.db_session = db_session
-        self._use_db = db_session is not None
+        
+        # Auto-detect database availability
+        self._use_db = self._check_db_available()
         
         if self._use_db:
             logger.info("MemoryManager initialized with PostgreSQL backend")
         else:
             logger.info("MemoryManager initialized with JSON file backend (fallback mode)")
+    
+    def _check_db_available(self) -> bool:
+        """Check if database is available."""
+        if self.db_session is not None:
+            return True
+        try:
+            from src.db.database import get_db_manager
+            db_manager = get_db_manager()
+            if db_manager and db_manager.engine:
+                return True
+        except Exception as e:
+            logger.debug(f"Database not available: {e}")
+        return False
 
     def _get_db(self) -> Optional[Session]:
         """Get database session, refreshing if needed."""
@@ -79,16 +94,35 @@ class MemoryManager:
 
     def _save_draft_db(self, user_id: str, draft_data: Dict[str, Any]) -> None:
         """Save draft to PostgreSQL database."""
-        from src.db.models import Draft
+        from src.db.models import Draft, UserProfile
         
         db = self._get_db()
         if not db:
             raise RuntimeError("Database session not available")
         
         try:
+            # Ensure a UserProfile row exists to satisfy FK constraint.
+            # If OAuth/profile creation hasn't run yet (e.g., user reopened app with cached FE session),
+            # auto-create a minimal profile so drafts don't silently fall back to JSON.
+            profile = db.query(UserProfile).filter_by(id=user_id).first()
+            if not profile:
+                profile = UserProfile(
+                    id=user_id,
+                    email=f"{user_id}@unknown.com",  # placeholder; will be updated when real profile arrives
+                    name=None,
+                    company=None,
+                    role=None,
+                    preferences={},
+                )
+                db.add(profile)
+                db.flush()  # obtain persistence before adding draft
+
+            # Support both 'content' and 'draft' keys for backward compatibility
+            content = draft_data.get("content") or draft_data.get("draft", "")
+            
             draft = Draft(
                 user_id=user_id,
-                content=draft_data.get("content", ""),
+                content=content,
                 original_input=draft_data.get("original_input"),
                 draft_metadata=draft_data.get("metadata", {}),
             )
@@ -170,6 +204,56 @@ class MemoryManager:
                     "created_at": draft.created_at.isoformat() if draft.created_at else None,
                 })
             
+            if not result:
+                # Migration fallback: if DB has no drafts but a JSON fallback file exists (from earlier failures),
+                # ingest those drafts into the database so history becomes visible.
+                user_drafts_file = self.drafts_dir / f"{user_id}_drafts.json"
+                if user_drafts_file.exists():
+                    try:
+                        with open(user_drafts_file, "r") as f:
+                            legacy_drafts = json.load(f)
+                        migrated_count = 0
+                        for legacy in legacy_drafts:
+                            content = legacy.get("content") or legacy.get("draft", "")
+                            if not content:
+                                continue
+                            draft_obj = Draft(
+                                user_id=user_id,
+                                content=content,
+                                original_input=legacy.get("original_input"),
+                                draft_metadata=legacy.get("metadata", {}),
+                            )
+                            db.add(draft_obj)
+                            migrated_count += 1
+                        if migrated_count:
+                            db.commit()
+                            # Re-query now that we've migrated
+                            query = db.query(Draft).filter_by(user_id=user_id).order_by(desc(Draft.created_at))
+                            if limit:
+                                query = query.limit(limit)
+                            drafts = query.all()
+                            result = [
+                                {
+                                    "id": d.id,
+                                    "content": d.content,
+                                    "original_input": d.original_input,
+                                    "metadata": d.draft_metadata or {},
+                                    "created_at": d.created_at.isoformat() if d.created_at else None,
+                                }
+                                for d in drafts
+                            ]
+                            logger.info(
+                                f"Migrated {migrated_count} legacy JSON drafts for user {user_id} into database"
+                            )
+                            # Optionally remove legacy file after successful migration
+                            try:
+                                user_drafts_file.unlink()
+                            except OSError:
+                                pass
+                    except Exception as mig_err:
+                        logger.warning(
+                            f"Failed migrating legacy JSON drafts for user {user_id}: {mig_err}"
+                        )
             logger.debug(f"Loaded {len(result)} drafts from database for user {user_id}")
             return result
         finally:

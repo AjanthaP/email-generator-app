@@ -6,6 +6,9 @@ class FakeQuotaError(Exception):
 
 
 def test_quota_error_triggers_stub(monkeypatch):
+    # Ensure stub flag not set so workflow attempts normal path before fallback
+    import os
+    os.environ.pop("DONOTUSEGEMINI", None)
     # Monkeypatch one agent to raise a quota-like error on call
     from src.agents.input_parser import InputParserAgent
 
@@ -16,7 +19,7 @@ def test_quota_error_triggers_stub(monkeypatch):
 
     monkeypatch.setattr(InputParserAgent, "__call__", quota_fail)
 
-    state = execute_workflow("Write a follow up email to thank Sarah for the meeting")
+    state = execute_workflow("Write a follow up email to thank Sarah for the meeting", use_stub=False)
 
     assert state.get("metadata", {}).get("source") == "stub", "Should fall back to stub source"
     assert "gemini_quota_fallback" in state.get("review_notes", {}), "Review notes should record fallback reason"

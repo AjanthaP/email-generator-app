@@ -266,22 +266,27 @@ class DraftWriterAgent:
         Returns:
             str: Generated email draft
         """
+        # Stub / local mode early fallback
+        from src.utils.config import settings
+        if getattr(settings, "donotusegemini", False) or not hasattr(self.llm, "invoke"):
+            return self._fallback_draft(parsed_data)
+
         try:
             # Get intent-specific prompt or use outreach as fallback
             template = self.intent_templates.get(intent, self.intent_templates["outreach"])
-            
+
             prompt = ChatPromptTemplate.from_template(template)
             chain = prompt | self.llm
-            
+
             response = self.llm_wrapper.invoke_chain(chain, {
                 "recipient": parsed_data.get("recipient_name", ""),
                 "purpose": parsed_data.get("email_purpose", ""),
                 "key_points": "\n- ".join(parsed_data.get("key_points", [])),
                 "tone": tone
             })
-            
+
             return response.content.strip()
-            
+
         except Exception as e:
             print(f"Error writing draft: {e}")
             return self._fallback_draft(parsed_data)

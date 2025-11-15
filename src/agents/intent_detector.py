@@ -80,6 +80,25 @@ class IntentDetectorAgent:
         Returns:
             str: Intent classification (e.g., "outreach", "follow_up")
         """
+        # Stub / local mode: skip LLM invocation and use heuristic
+        from src.utils.config import settings
+        if getattr(settings, "donotusegemini", False) or not hasattr(self.llm, "invoke"):
+            purpose = (parsed_data.get("email_purpose", "") or "").lower()
+            # Simple heuristic mapping
+            if any(k in purpose for k in ["follow", "follow-up"]):
+                return "follow_up"
+            if "thank" in purpose:
+                return "thank_you"
+            if any(k in purpose for k in ["meeting", "schedule"]):
+                return "meeting_request"
+            if "apolog" in purpose:
+                return "apology"
+            if any(k in purpose for k in ["info", "question", "help"]):
+                return "information_request"
+            if any(k in purpose for k in ["status", "update"]):
+                return "status_update"
+            return "outreach"
+
         try:
             chain = self.prompt | self.llm
             response = self.llm_wrapper.invoke_chain(chain, {
@@ -88,21 +107,21 @@ class IntentDetectorAgent:
                 "key_points": ", ".join(parsed_data.get("key_points", [])),
                 "context": parsed_data.get("context", "")
             })
-            
+
             intent = response.content.strip().lower().replace(" ", "_")
-            
+
             # Validate intent
             if intent in self.intents:
                 return intent
-            
+
             # Try to find closest match
             for valid_intent in self.intents:
                 if valid_intent in intent or intent in valid_intent:
                     return valid_intent
-            
+
             # Fallback to outreach if no match found
             return "outreach"
-            
+
         except Exception as e:
             print(f"Error detecting intent: {e}")
             return "outreach"

@@ -1,0 +1,24 @@
+[
+  {
+    "content": "Test email generated at 2025-11-15T05:25:36.879605",
+    "draft": "Test email generated at 2025-11-15T05:25:36.879718",
+    "metadata": {
+      "intent": "test",
+      "tone": "formal",
+      "recipient": "test@example.com"
+    },
+    "original_input": "This is a test draft to verify history functionality",
+    "created_at": "2025-11-15T05:25:36.879880"
+  },
+  {
+    "content": "Test email generated at 2025-11-15T05:32:22.263292",
+    "draft": "Test email generated at 2025-11-15T05:32:22.263405",
+    "metadata": {
+      "intent": "test",
+      "tone": "formal",
+      "recipient": "test@example.com"
+    },
+    "original_input": "This is a test draft to verify history functionality",
+    "created_at": "2025-11-15T05:32:22.263666"
+  }
+]

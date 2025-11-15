@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""
-Configuration Integration Test.
+"""(Moved) Configuration integration test.
 
-Tests that all infrastructure components properly use centralized .env configuration.
+Relocated under scripts/diagnostics for clarity; this root copy will be removed.
 """
 
 import os
