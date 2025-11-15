@@ -19,24 +19,41 @@ _LANGSMITH_ACTIVATED = False
 def activate_langsmith() -> bool:
     """Activate LangSmith tracing if configured.
 
+    Supports both personal and workspace-scoped API keys.
+    If workspace ID is provided, it will be used; otherwise falls back to personal API.
+
     Returns True if activation steps executed (even if partial), False otherwise.
     """
     global _LANGSMITH_ACTIVATED
     if _LANGSMITH_ACTIVATED:
         return True
 
-    if not (settings.enable_langsmith and settings.langchain_tracing_v2):
+    if not settings.enable_langsmith:
         return False
 
     try:
         # Set environment variables expected by LangChain tracing V2
-        os.environ.setdefault("LANGCHAIN_TRACING_V2", "true")
+        os.environ["LANGCHAIN_TRACING_V2"] = "true"
         if settings.langsmith_api_key:
             os.environ.setdefault("LANGSMITH_API_KEY", settings.langsmith_api_key)
         if settings.langchain_project:
             os.environ.setdefault("LANGCHAIN_PROJECT", settings.langchain_project)
+        
+        # Workspace ID is optional - only set if provided (for org-scoped keys)
+        # Personal API keys work without workspace ID
+        if hasattr(settings, 'langsmith_workspace_id') and settings.langsmith_workspace_id:
+            if settings.langsmith_workspace_id != "your_workspace_id_here":
+                os.environ.setdefault("LANGSMITH_WORKSPACE_ID", settings.langsmith_workspace_id)
+                logger.info("LangSmith tracing activated (project=%s, workspace=%s)", 
+                           settings.langchain_project, settings.langsmith_workspace_id)
+            else:
+                logger.info("LangSmith tracing activated with personal API key (project=%s)", 
+                           settings.langchain_project)
+        else:
+            logger.info("LangSmith tracing activated with personal API key (project=%s)", 
+                       settings.langchain_project)
+        
         _LANGSMITH_ACTIVATED = True
-        logger.info("LangSmith tracing activated (project=%s)", settings.langchain_project)
         return True
     except Exception:
         logger.exception("Failed to activate LangSmith tracing")

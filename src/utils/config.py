@@ -22,7 +22,6 @@ class Settings(BaseSettings):
 
     # Observability / Tracing (LangSmith / LangChain)
     enable_langsmith: bool = False  # master feature toggle
-    langchain_tracing_v2: bool = False  # aligns with LANGCHAIN_TRACING_V2 env var
     langchain_project: Optional[str] = None
     langsmith_api_key: Optional[str] = None  # optional override if not in LANGSMITH_API_KEY
 
