@@ -56,13 +56,13 @@ def _sync_personalizer_profile(user_id: str, profile: Dict[str, Any]) -> None:
         pass
 
 
-@router.get("/users/{user_id}/profile", response_model=UserProfile)
+@router.get("/{user_id}/profile", response_model=UserProfile)
 async def get_user_profile(user_id: str = Path(..., description="Identifier for the user")) -> UserProfile:
     data = _load_profile(user_id)
     return UserProfile(user_id=user_id, **data)
 
 
-@router.put("/users/{user_id}/profile", response_model=UserProfile)
+@router.put("/{user_id}/profile", response_model=UserProfile)
 async def update_user_profile(
     payload: UserProfileUpdate,
     user_id: str = Path(..., description="Identifier for the user"),
@@ -82,7 +82,7 @@ async def update_user_profile(
     return UserProfile(user_id=user_id, **merged)
 
 
-@router.get("/users/{user_id}/history", response_model=DraftHistoryResponse)
+@router.get("/{user_id}/history", response_model=DraftHistoryResponse)
 async def get_user_history(
     user_id: str = Path(..., description="Identifier for the user"),
     limit: int = Query(20, ge=1, le=100, description="Maximum drafts to return"),
@@ -91,7 +91,7 @@ async def get_user_history(
     return DraftHistoryResponse(drafts=drafts)
 
 
-@router.post("/users/{user_id}/history/learn")
+@router.post("/{user_id}/history/learn")
 async def learn_from_edits(
     payload: LearnFromEditsRequest,
     user_id: str = Path(..., description="Identifier for the user"),
