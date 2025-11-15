@@ -306,65 +306,56 @@ PERSONALIZATION_PROMPT = ChatPromptTemplate.from_template(
 
 # Refinement Agent Prompt
 REFINEMENT_AGENT_PROMPT = ChatPromptTemplate.from_template("""
-You are an expert email refinement specialist. Your task is to polish the final email draft by addressing these specific issues:
+You are an expert email refinement specialist. Refine the draft strictly according to the ordered tasks below. Do NOT invent new facts.
 
-Email Draft to Refine:
+Email Draft (to refine as needed):
 {draft}
 
-REFINEMENT TASKS:
+ORDERED REFINEMENT TASKS (perform in sequence; skip a task if not needed):
 
-1. REMOVE DUPLICATE SIGNATURES
-   - Check if the signature appears more than once (e.g., "Best regards" or "Sincerely" repeated)
-   - Keep ONLY ONE signature block at the end of the email
-   - If multiple signatures exist, consolidate into a single closing
-   
-   Example BEFORE:
-   "...looking forward to hearing from you.
-   
-   Best regards,
-   John Doe
-   
-   Best regards,
-   John Doe"
-   
-   Example AFTER:
-   "...looking forward to hearing from you.
-   
-   Best regards,
-   John Doe"
+1. DEDUPLICATE CLOSINGS & SIGNATURES
+   - Keep only ONE closing/signature block at end (e.g., choose a single final block among: "Best regards", "Regards", "Sincerely", "Thank you", "Warm regards").
+   - If multiple appear, retain the first complete one with name/title; remove others.
 
-2. FIX GRAMMAR AND SPELLING MISTAKES
-   - Correct any grammatical errors (subject-verb agreement, tense consistency, etc.)
-   - Fix spelling mistakes
-   - Ensure proper capitalization
-   - Fix punctuation errors
-   
-   Example BEFORE:
-   "I would like too discuss about the oportunity. Their very interested in you're proposal."
-   
-   Example AFTER:
-   "I would like to discuss the opportunity. They're very interested in your proposal."
+2. DEDUPLICATE GREETINGS
+   - If greeting lines repeat ("Hello Maria," / "Dear Team," etc.), keep the first valid greeting and remove subsequent duplicates.
+   - Do NOT alter the recipient name or greeting wording aside from removing duplicates.
 
-3. REMOVE REPETITIVE SENTENCES
-   - Identify sentences that convey the same meaning or information
-   - Keep the clearest, most concise version
-   - Eliminate redundant phrases or ideas
-   
-   Example BEFORE:
-   "I am writing to follow up on my previous email. I wanted to follow up regarding the message I sent earlier. I'm reaching out again about my earlier communication."
-   
-   Example AFTER:
-   "I am writing to follow up on my previous email."
+3. STRIP PLACEHOLDERS & TEMPLATE TOKENS
+   - Remove bracketed or angle/curly placeholder tokens like: [Your Name], [Company], {Company Name}, <Insert Value>, (Your Title), {{anything}}, <<anything>>.
+   - Remove obvious ALL-CAPS placeholder phrases of pattern: "YOUR ... HERE" or "INSERT ...".
+   - After removal, ensure surrounding punctuation and spacing are clean.
 
-IMPORTANT GUIDELINES:
-- Preserve the original tone and intent of the email
-- Do NOT change the greeting or recipient name
-- Do NOT alter key content, dates, or important details
-- Do NOT add new information that wasn't in the original draft
-- Only fix the three specific issues listed above
-- If no issues are found, return the draft unchanged
+4. UNWRAP NESTED / REDUNDANT BRACKETS
+   - Convert [[[text]]], ((text)), {{text}}, <<text>>, [ [ text ] ], etc. to plain: text.
+   - Remove empty bracket pairs entirely ([], {}, (), <> alone).
 
-Return ONLY the refined email draft, with no explanations, comments, or markdown formatting.
+5. CLEAN ORPHANED BRACKETS & EXTRANEOUS PUNCTUATION/SPACES
+   - Remove leftover solitary [, ], (, ), {, }, <, > that do not enclose content.
+   - Collapse multiple consecutive spaces to one.
+   - Replace sequences of more than three periods with an ellipsis "…" (single Unicode ellipsis) unless part of a quoted excerpt.
+
+6. MERGE REPETITIVE SENTENCES/CLAIMS
+   - If the same idea is repeated, keep the strongest, clearest version; remove the rest.
+   - Do NOT remove unique details (dates, metrics, commitments).
+
+7. LIGHT GRAMMAR & SPELLING CORRECTION
+   - Fix spelling, agreement, punctuation, capitalization.
+   - Preserve tone and intent; do NOT expand content.
+
+8. LENGTH & SAFETY GUARDS
+   - Aim to keep overall length within ±5% of original unless placeholder/bracket removal forces greater reduction.
+   - Never shorten more than necessary; never lengthen beyond minor grammar adjustments.
+   - Do NOT change greeting line or recipient name.
+   - Do NOT introduce new facts, promises, dates, links, or attachments.
+
+GENERAL RULES:
+- Preserve core meaning and professional tone.
+- Maintain any existing scheduling details, numbers, or commitments verbatim.
+- If no changes are required, return the draft exactly unchanged.
+
+OUTPUT:
+Return ONLY the refined email text. No explanations, no commentary, no markdown.
 """)
 
 # Fallback Draft Template

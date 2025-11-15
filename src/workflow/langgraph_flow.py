@@ -262,13 +262,17 @@ def execute_workflow(
     for node_name in order:
         agent = agents.get(node_name)
         if agent is None:
+            print(f"[Workflow] Warning: Agent '{node_name}' not found, skipping")
             continue
 
+        print(f"[Workflow] Running agent: {node_name}")
         try:
             updates = agent(state) or {}
             # Merge updates into state
             for k, v in updates.items():
                 state[k] = v  # type: ignore[index]
+            
+            print(f"[Workflow] Agent '{node_name}' completed successfully")
 
             if developer_mode:
                 # Capture a snapshot after this agent runs
@@ -285,6 +289,7 @@ def execute_workflow(
             # If it's a Gemini quota/429 error, switch to the stubbed generator
             # immediately and return a usable state rather than continuing with
             # missing/partial fields.
+            print(f"[Workflow] Error in agent '{node_name}': {e}")
             state.setdefault("review_notes", {})
             state["review_notes"][node_name] = {"error": str(e)}
 
