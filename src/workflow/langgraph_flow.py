@@ -185,7 +185,15 @@ def _generate_stub_state(user_input: str, tone: str = "formal") -> EmailState:
     return state
 
 
-def execute_workflow(user_input: str, llm: Optional[ChatGoogleGenerativeAI] = None, use_stub: Optional[bool] = None, user_id: str = "default", tone: str = "formal", developer_mode: bool = False) -> EmailState:
+def execute_workflow(
+    user_input: str,
+    llm: Optional[ChatGoogleGenerativeAI] = None,
+    use_stub: Optional[bool] = None,
+    user_id: str = "default",
+    tone: str = "formal",
+    developer_mode: bool = False,
+    length_preference: Optional[int] = None,
+) -> EmailState:
     """Execute the email workflow sequentially and return the final state.
 
     If `use_stub` is True, the function will generate a stubbed state without calling the LLMs.
@@ -204,7 +212,10 @@ def execute_workflow(user_input: str, llm: Optional[ChatGoogleGenerativeAI] = No
     if use_stub:
         # Return a stubbed state for local testing without hitting Gemini
         # IMPORTANT: Return early BEFORE creating any LLM instance
-        return _generate_stub_state(user_input, tone=tone)
+        stub = _generate_stub_state(user_input, tone=tone)
+        if length_preference and length_preference > 0:
+            _apply_length_constraint(stub, length_preference)
+        return stub
 
     # Only create LLM if we're NOT using stub mode
     if llm is None:
@@ -288,6 +299,9 @@ def execute_workflow(user_input: str, llm: Optional[ChatGoogleGenerativeAI] = No
             # Non-quota error: capture and continue to next agent (best-effort)
             # This keeps the workflow robust when a single agent fails.
 
+    if length_preference and length_preference > 0:
+        _apply_length_constraint(state, length_preference)
+
     if developer_mode:
         state["developer_trace"] = developer_trace
     return state
@@ -296,7 +310,14 @@ def execute_workflow(user_input: str, llm: Optional[ChatGoogleGenerativeAI] = No
 __all__ = ["EmailState", "execute_workflow", "create_agents", "default_graph_order"]
 
 
-def generate_email(user_input: str, tone: str = "formal", use_stub: Optional[bool] = None, user_id: str = "default", developer_mode: bool = False) -> Dict[str, Any]:
+def generate_email(
+    user_input: str,
+    tone: str = "formal",
+    use_stub: Optional[bool] = None,
+    user_id: str = "default",
+    developer_mode: bool = False,
+    length_preference: Optional[int] = None,
+) -> Dict[str, Any]:
     """Convenience wrapper matching the v2 guide's example signature.
 
     This wraps `execute_workflow` and returns a simplified dict containing
@@ -315,7 +336,14 @@ def generate_email(user_input: str, tone: str = "formal", use_stub: Optional[boo
             - metadata: dict (source/model/fallback info)
             - review_notes: optional dict of agent-level errors/fallback reasons
     """
-    state = execute_workflow(user_input, use_stub=use_stub, user_id=user_id, tone=tone, developer_mode=developer_mode)
+    state = execute_workflow(
+        user_input,
+        use_stub=use_stub,
+        user_id=user_id,
+        tone=tone,
+        developer_mode=developer_mode,
+        length_preference=length_preference,
+    )
     # Choose best available draft key
     final = state.get("final_draft") or state.get("personalized_draft") or state.get("styled_draft") or state.get("draft") or ""
     result = {
@@ -328,3 +356,47 @@ def generate_email(user_input: str, tone: str = "formal", use_stub: Optional[boo
     return result
 
 __all__.append("generate_email")
+
+
+def _apply_length_constraint(state: EmailState, length_preference: int) -> None:
+    """Trim the draft/personalized/final drafts to roughly the requested word count.
+
+    We interpret length_preference as a desired maximum word count (not characters).
+    The function preserves sentence boundaries where possible and appends an ellipsis
+    if meaningful content was truncated.
+    """
+    try:
+        max_words = max(1, int(length_preference))
+    except (TypeError, ValueError):
+        return
+
+    # Identify the best candidate draft
+    draft_key_order = ["final_draft", "personalized_draft", "styled_draft", "draft"]
+    for k in draft_key_order:
+        if k in state and isinstance(state[k], str) and state[k]:
+            original = state[k]
+            words = original.split()
+            if len(words) <= max_words:
+                # No trimming needed; annotate metadata
+                _annotate_length_metadata(state, original, len(words), max_words, trimmed=False)
+                return
+            trimmed_words = words[:max_words]
+            trimmed_text = " ".join(trimmed_words)
+            # Preserve final punctuation if present in original beyond cut
+            if not trimmed_text.endswith(('.', '!', '?')) and original[len(trimmed_text):].strip():
+                trimmed_text += "…"
+            state[k] = trimmed_text
+            # Propagate trimmed version to other draft keys if they exist
+            for mirror_key in draft_key_order:
+                if mirror_key != k and mirror_key in state and isinstance(state[mirror_key], str):
+                    state[mirror_key] = trimmed_text
+            _annotate_length_metadata(state, original, len(words), max_words, trimmed=True)
+            return
+
+
+def _annotate_length_metadata(state: EmailState, original_text: str, original_word_count: int, target_word_count: int, trimmed: bool) -> None:
+    md = state.setdefault("metadata", {})
+    md["requested_length_preference"] = target_word_count
+    md["original_word_count"] = original_word_count
+    md["final_word_count"] = min(original_word_count, target_word_count) if trimmed else original_word_count
+    md["length_trimmed"] = trimmed

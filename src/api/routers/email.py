@@ -47,6 +47,7 @@ async def generate_email(payload: EmailGenerateRequest) -> EmailGenerateResponse
             user_id=user_id,
             tone=payload.tone or "formal",
             developer_mode=payload.developer_mode,
+            length_preference=payload.length_preference,
         )
     except Exception as exc:  # pylint: disable=broad-exception-caught
         raise HTTPException(status_code=500, detail=f"Workflow error: {exc}") from exc
@@ -71,8 +72,14 @@ async def generate_email(payload: EmailGenerateRequest) -> EmailGenerateResponse
             "recipient": state.get("recipient", payload.recipient),
             "model": metadata.get("model") or metadata.get("fallback_from_model"),
             "source": metadata.get("source", "llm"),
+            "requested_length_preference": payload.length_preference,
         }
     )
+
+    # If trimming occurred in workflow metadata, reflect final word count here
+    if "final_word_count" in metadata:
+        metadata["final_word_count"] = metadata["final_word_count"]
+        metadata["original_word_count"] = metadata.get("original_word_count")
 
     context_mode = "contextual" if use_prior_context else "fresh"
     metadata["context_mode"] = context_mode
