@@ -1,26 +1,54 @@
 # AI Email Assistant
 
-AI-powered email generation assistant built with FastAPI, React, and LangGraph. Generate professional emails with customizable tone, personalization, and context awareness.
+AI-powered email generation assistant built with FastAPI, LangGraph, and a React (Vite) frontend. It produces professional, personalized emails with controllable tone, length targeting, and developer trace visibility.
+
+> CURRENT STATUS (Nov 2025): Active components are FastAPI + Gemini (Google Generative AI) + PostgreSQL (Railway) + JSON local fallback storage + Agent workflow. Redis, ChromaDB, and MongoDB are NOT currently used in production; they remain optional feature flags for future expansion.
+
+## ✅ Core Features
+- Structured multi-agent workflow (parse → intent → draft → tone styling → personalization → review → refinement → routing)
+- Precise word-length targeting (±5% tolerance; adaptive trimming only if necessary)
+- Prompt-only refinement (no hardcoded regex cleanup)
+- Recipient & greeting preservation safeguards
+- Personalization with profile-aware signature injection (no placeholders)
+- Developer Mode trace: per-agent post-step snapshots
+- Graceful LLM quota fallback to stubbed local generator
+- Centralized prompt templates (single source of truth)
+
+## 🗺️ High-Level Architecture
+```
+React Frontend (Vite) ── REST calls ──▶ FastAPI Backend
+                                         │
+                                         ├─ LangGraph-inspired Sequential Agents
+                                         │    (InputParser → Intent → DraftWriter → ToneStylist → Personalization → Review → Refinement → Router)
+                                         │
+                                         ├─ Google Gemini (LLM) via langchain-google-genai
+                                         │
+                                         ├─ PostgreSQL (Railway)  ← primary persistence (profiles, drafts)
+                                         │
+                                         └─ JSON fallback (data/ ) when DB unavailable
+```
+
+Optional / Future (currently disabled): Redis cache, ChromaDB vector store, MongoDB alternative persistence.
 
 ## 🚀 Deployment
 
-This project uses a **two-app architecture**:
+This project uses a **two-app architecture** (backend + frontend).
 
 ### Backend (FastAPI) → Railway
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template)
+See: [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md)
 
-**Guide:** [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md)
+### Frontend (React + Vite) → Vercel / Netlify / Railway
+See: [FRONTEND_DEPLOYMENT.md](FRONTEND_DEPLOYMENT.md)
 
-### Frontend (React + Vite) → Vercel/Netlify/Railway
+**Recommended Stack (Current):**
+- 🔧 Backend: Railway (FastAPI + Docker)
+- 🎨 Frontend: Vercel (Vite React build output)
+- 💾 Database: PostgreSQL on Railway
+- 🧠 LLM: Google Gemini Flash (`gemini-2.0-flash`)
+- 📂 Fallback Storage: Local JSON (`data/`)
 
-**Guide:** [FRONTEND_DEPLOYMENT.md](FRONTEND_DEPLOYMENT.md)
-
-**Recommended Stack:**
-- 🔧 **Backend:** Railway (Python/FastAPI with Docker)
-- 🎨 **Frontend:** Vercel (React/Vite - optimized static hosting)
-- 💾 **Database:** Railway Redis + MongoDB Atlas (optional)
-
-## Quick start
+## 🏁 Quick Start
 
 1. Create and activate a virtual environment (Windows PowerShell):
 
@@ -35,7 +63,7 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
-3. Copy `.env.example` to `.env` and add your API keys.
+3. Copy `.env.example` to `.env` and add your API keys & `DATABASE_URL`.
 
 4. Run the FastAPI backend locally (after setting `GEMINI_API_KEY` in `.env`):
 
@@ -44,77 +72,44 @@ uvicorn src.api.main:app --reload --port 8001
 ```
 
 ### Backend API (FastAPI)
+Exposes a workflow endpoint (`POST /email/generate`) and history/profile endpoints.
 
-We now expose the workflow as a REST API for use with a React (or any web) frontend.
-
-1. Install dependencies (already included in `requirements.txt`).
-2. Launch the API server:
-
+Run locally:
 ```powershell
 uvicorn src.api.main:app --reload --port 8001
 ```
-
-The default CORS settings allow requests from `localhost:5173` and `localhost:3000`, which match the typical Vite and Create React App dev servers.
+Default CORS allows `localhost:5173`, `localhost:3000`.
 
 ### React Frontend
+- Vite-based React app under `frontend/` calls `http://localhost:8001/email/generate`.
+- OAuth flows (Google) route via `/auth/callback` (see deployment guide).
+- Developer Mode toggle surfaces per-agent trace (see below).
 
-- Scaffold a React app in `frontend/` (Vite recommended) and configure it to call `http://localhost:8001/email/generate`.
-- Implement authentication pages and OAuth redirects using React Router (paths such as `/auth/callback`).
-- **Developer Mode Implementation:** See [REACT_DEVELOPER_MODE.md](REACT_DEVELOPER_MODE.md) for complete guide on adding step-by-step workflow visibility with UI components, API integration, and best practices.
+### Developer Mode (Per-Step Trace)
+Returns ordered snapshots after each agent with keys: `parsed_data`, `intent`, `draft`, `personalized_draft`, `final_draft`, `metadata`.
 
-### Developer Mode (Per-step Outputs)
-
-**For React Frontend:** Complete implementation guide available in [REACT_DEVELOPER_MODE.md](REACT_DEVELOPER_MODE.md)
-
-**Python API:**
+Python:
 ```python
 from src.workflow.langgraph_flow import generate_email
-
-result = generate_email(
-    user_input="Write a follow-up email...",
-    developer_mode=True  # Enable step-by-step capture
-)
-# result["developer_trace"] contains ordered list of {agent, snapshot}
+result = generate_email("Follow up about proposal", developer_mode=True)
+for step in result["developer_trace"]:
+      print(step["agent"], step["snapshot"].keys())
 ```
-
-**REST API:**
+REST:
 ```bash
-curl -X POST http://localhost:8001/email/generate \
-  -H "Content-Type: application/json" \
-  -d '{"user_input": "Write a follow-up email...", "developer_mode": true}'
+curl -s -X POST http://localhost:8001/email/generate \
+   -H "Content-Type: application/json" \
+   -d '{"user_input": "Follow up about proposal", "developer_mode": true}' | jq
 ```
 
-The trace shows post-step state for each agent (input_parser, intent_detector, draft_writer, tone_stylist, personalization, review, refinement, router) including `parsed_data`, `intent`, `draft`, `personalized_draft`, and `final_draft` fields.
-
-## Repository Layout
-
-Runtime vs non-runtime files are now separated clearly:
-
-## Repository Layout
-
-### React Frontend Roadmap
-
-- Scaffold a React app in `frontend/` (Vite recommended) and configure it to call `http://localhost:8001/api/v1/email/generate`.
-- Implement authentication pages and OAuth redirects using React Router (paths such as `/auth/callback`).
-- Add a "Developer Mode" toggle to surface per-agent workflow trace returned by `generate_email(..., developer_mode=True)`.
-- Render each agent snapshot (parsed input, intent, draft variants, final draft) above the draft history panel.
-
-### Developer Mode (Per-step Outputs)
-
-- Streamlit UI: enable `Developer mode (show step-by-step)` in the sidebar before generating. The app will display an expandable panel listing each agent and the output it produced at that step.
-- Python API: call `generate_email(user_input, developer_mode=True)` (or use `execute_workflow(..., developer_mode=True)` if you need the full state). The returned dict includes `developer_trace`, an ordered list of `{ agent, snapshot }`.
-- Notes: The trace shows the post-step state (e.g., `parsed_data`, `intent`, `draft`, `personalized_draft`, `final_draft`). This reflects the LLM’s effect per step without exposing provider-internal metadata.
-
-## Repository Layout
-
-Runtime vs non-runtime files are now separated clearly:
+## 📁 Repository Layout
 
 | Path | Purpose |
 |------|---------|
 | `src/` | Production backend source (FastAPI, agents, workflow) |
 | `tests/` | Pytest test suite (unit & integration) |
-| `scripts/diagnostics/` | One-off environment & data inspection scripts (not deployed) |
-| `scripts/migration/` | Data migration helpers (placeholder) |
+| `scripts/diagnostics/` | Local environment & data inspection scripts |
+| `scripts/migration/` | Data migration helpers (future) |
 | `data/` | Local JSON fallback storage & templates |
 | `frontend/` | React application (not included in this repository if external) |
 | `Dockerfile`, `railway.json`, `.dockerignore`, `start.py` | Deployment artefacts for Railway |
@@ -128,49 +123,60 @@ python scripts/diagnostics/database_url_fix.py
 ```
 These scripts must NOT be invoked from production containers; they are excluded from runtime logic.
 
-## 🚢 Deployment
-
-### Railway (Recommended)
-
-1. **Quick Check:**
-   ```bash
-   python check_railway.py
-   ```
-
-2. **Deploy:**
-   - Push to GitHub
-   - Connect Railway to your repository
-   - Add environment variables (see `.env.railway`)
-   - Railway auto-deploys!
-
-See [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md) for complete guide.
-
-### Other Platforms
-
-- **Docker:** Use provided `Dockerfile`
-- **Heroku:** Compatible with Procfile
-- **AWS/Azure:** Deploy container or use app services
-
-## 📝 Environment Variables
-
-Required for production:
-- `GEMINI_API_KEY` - Google Gemini API key
-- `JWT_SECRET_KEY` - Generate with `python -c "import secrets; print(secrets.token_urlsafe(32))"`
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` - For OAuth
-
-See `.env.railway` for complete production configuration.
-
-## 🏗️ Architecture
-
+## 🧪 Testing
+Run the test suite:
+```powershell
+pytest -q
 ```
-Frontend (React) ←→ Backend (FastAPI) ←→ LangGraph Workflow
-                         ↓
-                    Redis Cache
-                         ↓
-                    ChromaDB (optional)
-```
+
+## 📐 Length Targeting
+- `length_preference` passed from UI becomes `effective_length` (minimum 25 if <10 requested).
+- Agents aim for target word count; final adaptive trim only if >105%.
+- Metadata records: `requested_length_preference`, `effective_length_preference` (if adjusted), `original_word_count`, `final_word_count`, `length_trimmed`.
+
+## 🔒 Persistence Strategy
+Primary: PostgreSQL (Railway). Fallback: JSON under `data/` if DB unavailable or during quota fallback.
+Draft history normalized to always expose both `content` and `draft` keys for backward compatibility.
+
+## 🧠 Agents Overview
+1. InputParser – extract recipient, purpose, key points.
+2. IntentDetector – classify into predefined intents.
+3. DraftWriter – generate initial draft (no placeholders).
+4. ToneStylist – apply tone guidelines without altering greeting.
+5. Personalization – inject profile; safeguard recipient/greeting.
+6. Review – polish, ensure quality & length alignment.
+7. Refinement – ordered cleanup (dedupe, placeholders removal, grammar, subtle corrections) via prompt.
+8. Router – finalize routing / next-step metadata.
+
+## 🔧 Environment Variables (Key)
+| Variable | Purpose |
+|----------|---------|
+| `GEMINI_API_KEY` | Google Generative AI access |
+| `DATABASE_URL` | PostgreSQL connection string (`postgresql://user:pass@host:port/db`) |
+| `JWT_SECRET_KEY` | Auth token signing (auto-generate if absent) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | OAuth login |
+| `DONOTUSEGEMINI` or `NO_GEMINI` | Force stub (local) mode when truthy |
+
+Optional (disabled by default in current deployment): `REDIS_URL`, Chroma config vars.
+
+## 🧩 Optional / Planned Integrations
+- Redis caching layer (rate limiting, draft cache)
+- ChromaDB vector store for semantic context retrieval
+- MongoDB alternative persistence
+These remain behind feature toggles; none are active in production at present.
+
+## 🩹 Quota / Failure Fallback
+If Gemini quota error detected (429 / ResourceExhausted), system switches to stub state preserving workflow continuity; metadata marks source as `stub` and records fallback.
+
+## 🛡️ Safety & Output Integrity
+- Greeting and recipient name preserved exactly after initial generation.
+- No placeholder tokens ever emitted post-personalization.
+- Refinement prompt forbids fact invention, uncontrolled shortening, or new promises.
+
+## 🚢 Deployment (Summary)
+See detailed guides in `RAILWAY_DEPLOYMENT.md` and `FRONTEND_DEPLOYMENT.md`.
+Docker image builds from `Dockerfile`; environment variables injected at deploy time. Ensure `DATABASE_URL` and `GEMINI_API_KEY` are set before first request.
 
 ---
 
-Created from `email_assistant_guide_v2.md` project setup section.
-Railway deployment configured for production use.
+Created from original `email_assistant_guide_v2.md` with live adjustments to reflect current production stack (PostgreSQL + Gemini; Redis/Chroma disabled). Suggestions & contributions welcome.
