@@ -184,10 +184,14 @@ async def debug_db_status():
         
         # Try a simple query
         with db_manager.get_db() as db:
-            from src.db.models import UserProfile
-            count = db.query(UserProfile).count()
+            from src.db.models import UserProfile, Draft, OAuthSession
+            up_count = db.query(UserProfile).count()
+            d_count = db.query(Draft).count()
+            os_count = db.query(OAuthSession).count()
             result["database_connected"] = True
-            result["user_profiles_count"] = count
+            result["user_profiles_count"] = up_count
+            result["drafts_count"] = d_count
+            result["oauth_sessions_count"] = os_count
     except Exception as e:
         result["database_initialized"] = False
         result["error"] = str(e)

@@ -1,5 +1,6 @@
 """OAuth session endpoints for the SPA."""
 from typing import Any, Dict, List, Optional
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -17,6 +18,20 @@ router = APIRouter()
 
 _oauth_manager: Optional[OAuthManager] = create_oauth_manager()
 _memory_manager = MemoryManager()
+
+
+def _get_db_session():
+	"""Get a SQLAlchemy session, lazily initializing the DB if needed."""
+	try:
+		from src.db.database import get_db_manager
+		try:
+			db_manager = get_db_manager()
+		except RuntimeError:
+			from src.db.database import init_db
+			db_manager = init_db()
+		return db_manager.get_session()
+	except Exception:
+		return None
 
 
 def _ensure_manager() -> OAuthManager:
@@ -41,6 +56,39 @@ async def start_oauth(request: OAuthStartRequest) -> OAuthStartResponse:
 	result = manager.start_oauth_flow(request.provider, user_id=request.user_id)
 	if not result:
 		raise HTTPException(status_code=400, detail="Unable to start OAuth flow")
+
+	# Persist OAuth session to DB (best-effort)
+	try:
+		db = _get_db_session()
+		if db is not None:
+			from src.db.models import OAuthSession
+			# Determine redirect URI used by provider
+			redirect_uri = None
+			try:
+				provider_obj = _oauth_manager.providers.get(request.provider) if _oauth_manager else None
+				redirect_uri = getattr(provider_obj, "redirect_uri", None)
+			except Exception:
+				redirect_uri = None
+
+			expires_at = datetime.utcnow() + timedelta(minutes=10)
+			session_row = OAuthSession(
+				state=result["state"],
+				provider=request.provider,
+				redirect_uri=redirect_uri or settings.google_redirect_uri,
+				code_verifier=None,
+				expires_at=expires_at,
+				is_used=False,
+			)
+			# Upsert-like behavior: ignore if already exists
+			existing = db.query(OAuthSession).filter_by(state=result["state"]).first()
+			if not existing:
+				db.add(session_row)
+			db.commit()
+			db.close()
+	except Exception:
+		# Non-fatal: do not block auth if persistence fails
+		pass
+
 	return OAuthStartResponse(**result)
 
 
@@ -83,6 +131,28 @@ def _complete_oauth_common(provider: str, code: str, state: str) -> OAuthCallbac
 				print(f"[OAuth] ERROR: Failed to auto-create profile for {user_id}: {e}")
 				import traceback
 				traceback.print_exc()
+
+		# Update last_login_at and provider linkage
+		try:
+			db = _get_db_session()
+			if db is not None:
+				from src.db.models import UserProfile, OAuthSession
+				profile_row = db.query(UserProfile).filter_by(id=user_id).first()
+				if profile_row:
+					profile_row.last_login_at = datetime.utcnow()
+					profile_row.oauth_provider = profile_row.oauth_provider or provider
+					# Attempt to store provider user id if available
+					prov_uid = user_info.get("provider_id") or user_info.get("id")
+					if prov_uid and not profile_row.oauth_user_id:
+						profile_row.oauth_user_id = str(prov_uid)
+				# Mark OAuth session as used
+				sess = db.query(OAuthSession).filter_by(state=state).first()
+				if sess and not sess.is_used:
+					sess.is_used = True
+				db.commit()
+				db.close()
+		except Exception:
+			pass
 
 	return OAuthCallbackResponse(**result)
 
@@ -158,6 +228,26 @@ async def exchange_oauth(request: OAuthExchangeRequest) -> OAuthCallbackResponse
 				import traceback
 				traceback.print_exc()
 				# Continue even if profile creation fails
+
+			# Update last_login_at and mark OAuth session used
+			try:
+				db = _get_db_session()
+				if db is not None:
+					from src.db.models import UserProfile, OAuthSession
+					profile_row = db.query(UserProfile).filter_by(id=user_id).first()
+					if profile_row:
+						profile_row.last_login_at = datetime.utcnow()
+						profile_row.oauth_provider = profile_row.oauth_provider or request.provider
+						prov_uid = user_info.get("provider_id") or user_info.get("id")
+						if prov_uid and not profile_row.oauth_user_id:
+							profile_row.oauth_user_id = str(prov_uid)
+					sess = db.query(OAuthSession).filter_by(state=request.state).first()
+					if sess and not sess.is_used:
+						sess.is_used = True
+					db.commit()
+					db.close()
+			except Exception:
+				pass
 
 		return OAuthCallbackResponse(**result)
 	except HTTPException:

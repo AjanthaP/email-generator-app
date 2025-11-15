@@ -159,8 +159,19 @@ function App() {
       return
     }
 
+    // De-dup guard: avoid exchanging the same code twice (React StrictMode/HMR)
+    const exchangeKey = `oauth:exchanged:${provider}:${code}`
+    if (window.sessionStorage.getItem(exchangeKey)) {
+      // Already exchanged in this session; clean up URL and bail.
+      setAuthMessage((m) => m || 'Sign-in already completed.')
+      window.history.replaceState({}, '', window.location.pathname)
+      return
+    }
+
     let cancelled = false
     setAuthMessage('Completing sign-in…')
+    // Mark as in-progress to prevent duplicate attempts
+    window.sessionStorage.setItem(exchangeKey, '1')
     completeOAuth(provider, code, state)
       .then((response) => {
         if (cancelled) return
@@ -179,6 +190,8 @@ function App() {
         if (cancelled) return
         const message = err instanceof Error ? err.message : 'OAuth callback failed.'
         setAuthMessage(message)
+        // Allow retry on failure by clearing the guard
+        window.sessionStorage.removeItem(exchangeKey)
       })
       .finally(() => {
         if (!cancelled) {

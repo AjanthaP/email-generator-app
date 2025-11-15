@@ -80,7 +80,12 @@ class MemoryManager:
         if self.db_session is None:
             try:
                 from src.db.database import get_db_manager
-                db_manager = get_db_manager()
+                try:
+                    db_manager = get_db_manager()
+                except RuntimeError:
+                    # Lazily initialize the database when first needed
+                    from src.db.database import init_db
+                    db_manager = init_db()
                 session = db_manager.get_session()
                 logger.debug("Successfully acquired database session")
                 return session
