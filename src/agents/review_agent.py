@@ -49,30 +49,20 @@ class ReviewAgent:
     
     def review(self, draft: str, tone: str, intent: str) -> Dict:
         """
-        Review and improve email draft.
-        
+        Review and improve email draft using LLM (always).
+
         Args:
             draft: Email draft to review
             tone: Expected tone of the email
             intent: Email intent classification
-            
+
         Returns:
             Dict: Review result with approved status, final draft, and any issues found
         """
         try:
-            # First do quick validation checks
-            issues = self._quick_validation(draft)
-            
-            # If no issues found, consider it approved
-            if not issues:
-                return {
-                    "approved": True,
-                    "final_draft": draft,
-                    "issues": [],
-                    "improved": False
-                }
-            
-            # Use LLM to review and improve
+            # Always perform LLM-based review; collect quick checks only as metadata
+            heuristic_issues = self._quick_validation(draft)
+
             chain = self.review_prompt | self.llm
             # Determine effective target length (fallback 170), floor to 25 if <10
             target = getattr(self, "_workflow_length", None)
@@ -87,16 +77,17 @@ class ReviewAgent:
                 "intent": intent,
                 "target_length": target,
             })
-            
-            improved_draft = response.content.strip()
-            
+
+            improved_text = getattr(response, "content", str(response)).strip()
+            improved = improved_text.strip() != draft.strip()
+
             return {
                 "approved": True,
-                "final_draft": improved_draft,
-                "issues": issues,
-                "improved": True
+                "final_draft": improved_text or draft,
+                "issues": heuristic_issues,
+                "improved": bool(improved)
             }
-            
+
         except Exception as e:
             print(f"Error reviewing draft: {e}")
             # Return original draft if review fails
