@@ -9,8 +9,8 @@ when primary processing fails.
 from typing import Dict, Literal, List
 from langchain_google_genai import ChatGoogleGenerativeAI
 import json
-from utils.config import settings
-from utils.prompts import ROUTER_AGENT_PROMPT
+from src.utils.config import settings
+from src.utils.prompts import ROUTER_AGENT_PROMPT
 
 
 class RouterAgent:
