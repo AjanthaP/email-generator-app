@@ -6,8 +6,12 @@ from fastapi.concurrency import run_in_threadpool
 
 from src.memory.memory_manager import MemoryManager
 from src.utils.metrics import metrics
-from src.workflow.langgraph_flow import execute_workflow
-from ..schemas import EmailGenerateRequest, EmailGenerateResponse
+from src.workflow.langgraph_flow import execute_workflow, _init_llm
+from src.agents.review import ReviewAgent
+from src.agents.tone_stylist import ToneStylistAgent
+from src.agents.personalization import PersonalizationAgent
+from src.utils.llm_wrapper import make_wrapper
+from ..schemas import EmailGenerateRequest, EmailGenerateResponse, RegenerateRequest, RegenerateResponse
 
 router = APIRouter()
 
@@ -120,3 +124,112 @@ async def generate_email(payload: EmailGenerateRequest) -> EmailGenerateResponse
         context_mode=context_mode,
         developer_trace=developer_trace,
     )
+
+
+def calculate_diff_ratio(original: str, edited: str) -> float:
+    """Calculate percentage of content changed between original and edited drafts."""
+    orig_words = set(original.lower().split())
+    edit_words = set(edited.lower().split())
+    
+    if not orig_words and not edit_words:
+        return 0.0
+    
+    # Symmetric difference (words added or removed)
+    diff_words = orig_words ^ edit_words
+    total_words = max(len(orig_words), len(edit_words))
+    
+    return len(diff_words) / total_words if total_words > 0 else 0.0
+
+
+@router.post("/regenerate", response_model=RegenerateResponse)
+async def regenerate_draft(payload: RegenerateRequest) -> RegenerateResponse:
+    """
+    Regenerate draft from user-edited version using adaptive workflow.
+    
+    Decision logic:
+    - If < 20% changed: Run ReviewAgent only (fast, 1 LLM call)
+    - If >= 20% changed: Run ToneStylist → PersonalizationAgent → ReviewAgent (full polish)
+    """
+    if not payload.edited_draft.strip():
+        raise HTTPException(status_code=400, detail="Edited draft must not be empty")
+    
+    try:
+        # Calculate diff ratio
+        diff_ratio = calculate_diff_ratio(payload.original_draft, payload.edited_draft)
+        
+        # Initialize LLM and wrapper
+        llm = _init_llm()
+        wrapper = make_wrapper(llm)
+        
+        # Determine workflow type (20% threshold)
+        use_full_workflow = payload.force_full_workflow or diff_ratio >= 0.20
+        workflow_type = "full" if use_full_workflow else "lightweight"
+        
+        if use_full_workflow:
+            # Major edits: Full re-polish pipeline
+            # Step 1: Tone adjustment
+            tone_stylist = ToneStylistAgent(llm, llm_wrapper=wrapper)
+            styled_draft = await run_in_threadpool(
+                tone_stylist.adjust_tone,
+                payload.edited_draft,
+                payload.tone,
+                payload.length_preference or 170
+            )
+            
+            # Step 2: Personalization
+            personalizer = PersonalizationAgent(llm, llm_wrapper=wrapper)
+            personalization_state = {
+                "draft": styled_draft,
+                "user_id": payload.user_id,
+                "length_preference": payload.length_preference
+            }
+            personalized_result = await run_in_threadpool(
+                personalizer,
+                personalization_state
+            )
+            personalized_draft = personalized_result.get("personalized_draft", styled_draft)
+            
+            # Step 3: Review + refinement
+            reviewer = ReviewAgent(llm, llm_wrapper=wrapper)
+            review_state = {
+                "personalized_draft": personalized_draft,
+                "tone": payload.tone,
+                "intent": payload.intent,
+                "length_preference": payload.length_preference
+            }
+            final_result = await run_in_threadpool(reviewer, review_state)
+            final_draft = final_result.get("final_draft", personalized_draft)
+            metadata = final_result.get("metadata", {})
+            
+        else:
+            # Minor edits: Lightweight review only
+            reviewer = ReviewAgent(llm, llm_wrapper=wrapper)
+            review_state = {
+                "personalized_draft": payload.edited_draft,
+                "tone": payload.tone,
+                "intent": payload.intent,
+                "length_preference": payload.length_preference
+            }
+            final_result = await run_in_threadpool(reviewer, review_state)
+            final_draft = final_result.get("final_draft", payload.edited_draft)
+            metadata = final_result.get("metadata", {})
+        
+        # Collect metrics
+        usage_summary = metrics.session_summary()
+        
+        return RegenerateResponse(
+            final_draft=final_draft,
+            workflow_type=workflow_type,
+            diff_ratio=round(diff_ratio, 3),
+            metadata={
+                **metadata,
+                "diff_threshold": 0.20,
+                "original_length": len(payload.original_draft.split()),
+                "edited_length": len(payload.edited_draft.split()),
+                "final_length": len(final_draft.split())
+            },
+            metrics=usage_summary
+        )
+        
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Regeneration failed: {exc}") from exc

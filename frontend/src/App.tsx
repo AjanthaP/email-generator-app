@@ -3,10 +3,9 @@ import type { FormEvent } from 'react'
 import './App.css'
 import {
   generateEmail,
+  regenerateDraft,
   listOAuthProviders,
-  startOAuth,
   completeOAuth,
-  logout as logoutRequest,
   getUserProfile,
   updateUserProfile,
   getDraftHistory,
@@ -66,7 +65,6 @@ function App() {
   const [authMessage, setAuthMessage] = useState<string | null>(null)
 
   const [profileLoading, setProfileLoading] = useState(false)
-  const [profileSaving, setProfileSaving] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null)
   const [profileForm, setProfileForm] = useState({
@@ -84,6 +82,12 @@ function App() {
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [showHistory, setShowHistory] = useState(true)
   const [pendingContextReset, setPendingContextReset] = useState(false)
+
+  // Regenerate state
+  const [originalDraft, setOriginalDraft] = useState('')
+  const [isEdited, setIsEdited] = useState(false)
+  const [isRegenerating, setIsRegenerating] = useState(false)
+  const [regenerateInfo, setRegenerateInfo] = useState<{ workflowType: string; diffRatio: number } | null>(null)
 
   const apiBase = useMemo(() => import.meta.env.VITE_API_BASE_URL, [])
   const normalizedUserId = useMemo(() => userId.trim() || 'default', [userId])
@@ -173,7 +177,7 @@ function App() {
     // Mark as in-progress to prevent duplicate attempts
     window.sessionStorage.setItem(exchangeKey, '1')
     completeOAuth(provider, code, state)
-      .then((response) => {
+      .then((response: OAuthCallbackResponse) => {
         if (cancelled) return
         setAuthResult(response)
         setAuthMessage(
@@ -316,6 +320,10 @@ function App() {
 
       setResult(response)
       setPendingContextReset(false)
+      // Store original draft for regeneration
+      setOriginalDraft(response.draft)
+      setIsEdited(false)
+      setRegenerateInfo(null)
       if (response.saved) {
         try {
           const historyData = await getDraftHistory(normalizedUserId, 10)
@@ -347,54 +355,65 @@ function App() {
     }
   }
 
-  async function handleStartOAuth(provider: string) {
+  async function handleRegenerate() {
+    if (!isEdited || !originalDraft || !result) return
+
+    setIsRegenerating(true)
+    setError(null)
     try {
-      setAuthMessage(`Redirecting to ${provider}…`)
-      window.sessionStorage.setItem('pending_oauth_provider', provider)
-      const response = await startOAuth(provider, normalizedUserId)
-      window.location.href = response.authorization_url
+      const response = await regenerateDraft({
+        original_draft: originalDraft,
+        edited_draft: draftText,
+        tone: result.metadata.tone as string || tone,
+        intent: result.metadata.intent as string || 'outreach',
+        recipient: recipient || undefined,
+        length_preference: lengthPreference,
+        user_id: normalizedUserId,
+      })
+
+      setDraftText(response.final_draft)
+      setOriginalDraft(response.final_draft)
+      setIsEdited(false)
+      setRegenerateInfo({
+        workflowType: response.workflow_type,
+        diffRatio: response.diff_ratio,
+      })
+      setCopyStatus(`Regenerated using ${response.workflow_type} workflow (${(response.diff_ratio * 100).toFixed(0)}% changed)`)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to start OAuth flow.'
-      setAuthMessage(message)
+      const message = err instanceof Error ? err.message : 'Regeneration failed.'
+      setError(message)
+    } finally {
+      setIsRegenerating(false)
     }
   }
 
-  async function handleLogout() {
-    try {
-      await logoutRequest()
-      setAuthResult(null)
-      setUserId('default')
-      setAuthMessage('Signed out.')
-      // Clear localStorage on logout
-      localStorage.removeItem('auth_result')
-      localStorage.removeItem('user_id')
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to sign out.'
-      setAuthMessage(message)
-    }
+  function handleDraftChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
+    const newValue = event.target.value
+    setDraftText(newValue)
+    setIsEdited(newValue !== originalDraft)
   }
 
-  async function handleProfileSave(event: FormEvent<HTMLFormElement>) {
+  function handleLogout() {
+    localStorage.removeItem('auth_result')
+    setAuthResult(null)
+    setAuthMessage('Signed out successfully.')
+  }
+
+  function handleStartOAuth(provider: string) {
+    setAuthMessage(`OAuth with ${provider} is not yet implemented.`)
+  }
+
+  async function handleProfileSave(event: FormEvent) {
     event.preventDefault()
-    setProfileSaving(true)
     setProfileError(null)
     setProfileSuccess(null)
-
+    
     try {
-      const updated = await updateUserProfile(normalizedUserId, profileForm)
-      setProfileForm({
-        user_name: updated.user_name ?? '',
-        user_title: updated.user_title ?? '',
-        user_company: updated.user_company ?? '',
-        signature: updated.signature ?? '\n\nBest regards',
-        style_notes: updated.style_notes ?? 'professional and clear',
-      })
-      setProfileSuccess('Profile saved.')
+      await updateUserProfile(normalizedUserId, profileForm)
+      setProfileSuccess('Profile updated successfully!')
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to save profile.'
+      const message = err instanceof Error ? err.message : 'Profile update failed.'
       setProfileError(message)
-    } finally {
-      setProfileSaving(false)
     }
   }
 
@@ -590,9 +609,9 @@ function App() {
                 <button
                   className="button button--secondary"
                   type="submit"
-                  disabled={profileSaving}
+                  disabled={profileLoading}
                 >
-                  {profileSaving ? 'Saving…' : 'Save profile'}
+                  {profileLoading ? 'Saving…' : 'Save profile'}
                 </button>
                 {profileError && <p className="form__error">{profileError}</p>}
                 {profileSuccess && <p className="status status--success">{profileSuccess}</p>}
@@ -746,9 +765,10 @@ function App() {
               </div>
 
               <textarea
-                className="draft__editor"
+                className="draft__content"
+                id="draft"
                 value={draftText}
-                onChange={(event) => setDraftText(event.target.value)}
+                onChange={handleDraftChange}
                 rows={16}
               />
 
@@ -756,6 +776,15 @@ function App() {
                 <button className="button button--secondary" type="button" onClick={handleCopyDraft}>
                   Copy Draft
                 </button>
+                <button className="button button--secondary" type="button" onClick={handleRegenerate} disabled={isRegenerating || !isEdited}>
+                  {isRegenerating ? 'Regenerating…' : 'Regenerate Draft'}
+                </button>
+                {regenerateInfo && (
+                  <span className="regenerate-badge">
+                    {regenerateInfo.workflowType === 'lightweight' ? '⚡ Quick polish' : '🔄 Full re-polish'}
+                    {' '}({(regenerateInfo.diffRatio * 100).toFixed(0)}% changed)
+                  </span>
+                )}
               </div>
 
               {showDraftAside && (

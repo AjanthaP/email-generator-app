@@ -99,6 +99,25 @@ export interface LearnFromEditsPayload {
   edited: string
 }
 
+export interface RegenerateRequest {
+  original_draft: string
+  edited_draft: string
+  tone?: string
+  intent?: string
+  recipient?: string
+  length_preference?: number
+  user_id?: string
+  force_full_workflow?: boolean
+}
+
+export interface RegenerateResponse {
+  final_draft: string
+  workflow_type: 'lightweight' | 'full'
+  diff_ratio: number
+  metadata: Record<string, unknown>
+  metrics: MetricsSummary
+}
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -184,4 +203,11 @@ export async function learnFromEdits(userId: string, payload: LearnFromEditsPayl
       body: JSON.stringify(payload),
     },
   )
+}
+
+export async function regenerateDraft(payload: RegenerateRequest) {
+  return request<RegenerateResponse>(`/api/email/regenerate`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 }

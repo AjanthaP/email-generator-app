@@ -120,3 +120,27 @@ class DraftHistoryResponse(BaseModel):
 class LearnFromEditsRequest(BaseModel):
     original: str = Field(..., description="Original draft content before edits")
     edited: str = Field(..., description="Edited draft content provided by the user")
+
+
+class RegenerateRequest(BaseModel):
+    original_draft: str = Field(..., description="Original generated draft (for diff calculation)")
+    edited_draft: str = Field(..., description="User-edited draft to regenerate from")
+    tone: str = Field(default="formal", description="Original tone preference")
+    intent: str = Field(default="outreach", description="Original email intent")
+    recipient: Optional[str] = Field(default=None, description="Recipient name")
+    length_preference: Optional[int] = Field(default=None, description="Target word count")
+    user_id: str = Field(default="default", description="User identifier for personalization")
+    force_full_workflow: bool = Field(
+        default=False,
+        description="If true, skip diff analysis and run full re-polish workflow"
+    )
+
+
+class RegenerateResponse(BaseModel):
+    final_draft: str
+    workflow_type: str = Field(
+        description="Type of workflow used: 'lightweight' (review only) or 'full' (tone+personalization+review)"
+    )
+    diff_ratio: float = Field(description="Percentage of content changed (0.0-1.0)")
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metrics: Dict[str, Any] = Field(default_factory=dict)

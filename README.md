@@ -165,6 +165,62 @@ Optional (disabled by default in current deployment): `REDIS_URL`, Chroma config
 - MongoDB alternative persistence
 These remain behind feature toggles; none are active in production at present.
 
+## 🔗 MCP (Model Context Protocol)
+We expose a lightweight MCP-compatible JSON-RPC endpoint over HTTP to make tools and prompts available to external MCP clients.
+
+- Endpoint: `POST /api/mcp` (JSON-RPC 2.0)
+- Tools listing (convenience HTTP): `GET /api/mcp/tools`
+- Server name: `email-generator-mcp-server`
+
+Quick examples (PowerShell):
+
+Initialize
+```powershell
+curl -s -X POST http://localhost:8001/api/mcp `
+      -H "Content-Type: application/json" `
+      -d '{
+            "jsonrpc": "2.0",
+            "id": "1",
+            "method": "initialize",
+            "params": {"protocolVersion": "2024-11-05"}
+      }'
+```
+
+List tools
+```powershell
+curl -s -X POST http://localhost:8001/api/mcp `
+      -H "Content-Type: application/json" `
+      -d '{
+            "jsonrpc": "2.0",
+            "id": "2",
+            "method": "tools/list"
+      }'
+```
+
+Call `generate_email`
+```powershell
+curl -s -X POST http://localhost:8001/api/mcp `
+      -H "Content-Type: application/json" `
+      -d '{
+            "jsonrpc": "2.0",
+            "id": "3",
+            "method": "tools/call",
+            "params": {
+                  "name": "generate_email",
+                  "arguments": {
+                        "user_id": "default",
+                        "prompt": "Follow up about the proposal we sent last week.",
+                        "tone": "formal",
+                        "context": {"developer_mode": true, "length_preference": 120}
+                  }
+            }
+      }'
+```
+
+Notes:
+- This HTTP transport is a pragmatic adapter; some MCP clients (e.g., Claude Desktop) prefer stdio transports. For those, wrap `POST /api/mcp` in a gateway or add a stdio transport.
+- Tools implemented: `generate_email`, `get_email_templates`, `analyze_email_context`, `get_user_preferences`. Resources and prompts are also listed via MCP methods.
+
 ## 🩹 Quota / Failure Fallback
 If Gemini quota error detected (429 / ResourceExhausted), system switches to stub state preserving workflow continuity; metadata marks source as `stub` and records fallback.
 
