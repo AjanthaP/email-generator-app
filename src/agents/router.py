@@ -8,6 +8,9 @@ when primary processing fails.
 
 from typing import Dict, Literal, List
 from langchain_google_genai import ChatGoogleGenerativeAI
+import json
+from utils.config import settings
+from utils.prompts import ROUTER_AGENT_PROMPT
 
 
 class RouterAgent:
@@ -68,6 +71,57 @@ class RouterAgent:
             return "retry"
         
         return "continue"
+
+    def _llm_decide(self, state: Dict) -> Dict:
+        """Optional LLM-based decision pathway.
+
+        Returns a dict with keys routing_decision and metadata.decision_reason if successful.
+        Falls back to deterministic logic on error or invalid output.
+        """
+        if not settings.enable_llm_router or self.llm is None:
+            return {"routing_decision": self.route_next_step(state), "metadata": {"llm_router_used": False}}
+
+        retry_count = state.get("retry_count", 0)
+        issues = (state.get("metadata", {}) or {}).get("issues", [])
+        error = state.get("error")
+        needs_improvement = state.get("needs_improvement")
+        max_retries = self.max_retries
+
+        summary = (
+            f"error={error}; retry_count={retry_count}; max_retries={max_retries}; "
+            f"needs_improvement={needs_improvement}; issues_count={len(issues)}; issues={issues[:5]}"
+        )
+
+        try:
+            prompt = ROUTER_AGENT_PROMPT.format_messages(state_summary=summary)
+            response = self.llm.invoke(prompt)
+            raw = response.content.strip()
+            # Attempt JSON parse; clean common formatting artifacts
+            if raw.startswith("```"):
+                raw = raw.strip("`")
+                raw = raw.replace("json", "", 1).strip()
+            data = json.loads(raw)
+            decision = data.get("decision")
+            reason = data.get("reason", "")
+            if decision not in {"continue", "retry", "fallback"}:
+                raise ValueError("Invalid decision from LLM")
+            return {
+                "routing_decision": decision,
+                "metadata": {
+                    "llm_router_used": True,
+                    "decision_reason": reason,
+                },
+            }
+        except Exception as e:
+            # Fallback to deterministic logic
+            deterministic = self.route_next_step(state)
+            return {
+                "routing_decision": deterministic,
+                "metadata": {
+                    "llm_router_used": False,
+                    "llm_router_error": str(e)[:200],
+                },
+            }
     
     def create_fallback_draft(self, state: Dict) -> str:
         """
@@ -138,8 +192,9 @@ Best regards"""
         if not is_valid:
             print(f"Warning: Missing fields in state: {missing}")
         
-        # Check next step
-        next_step = self.route_next_step(state)
+        # Decide next step (LLM or deterministic)
+        decision_payload = self._llm_decide(state)
+        next_step = decision_payload.get("routing_decision")
         
         # If fallback is needed, create fallback draft
         if next_step == "fallback":
@@ -154,4 +209,4 @@ Best regards"""
                 "routing_decision": "fallback"
             }
         
-        return {"routing_decision": next_step}
+        return decision_payload

@@ -21,8 +21,9 @@ from agents.intent_detector import IntentDetectorAgent
 from agents.draft_writer import DraftWriterAgent
 from agents.tone_stylist import ToneStylistAgent
 from agents.personalization import PersonalizationAgent
-from agents.review_agent import ReviewAgent
+from agents.review import ReviewAgent
 from agents.router import RouterAgent
+from utils.config import settings
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 
@@ -196,10 +197,24 @@ def test_router_agent(llm):
             "error": None,
             "retry_count": 0
         }
-        
-        result = router(test_state)
-        print(f"✅ Router Agent succeeded")
-        print(f"   Routing decision: {result.get('routing_decision', 'N/A')}")
+        # First deterministic (LLM router disabled)
+        settings.enable_llm_router = False
+        result_det = router(test_state)
+        print(f"✅ Deterministic routing decision: {result_det.get('routing_decision', 'N/A')} (LLM used: {result_det.get('metadata', {}).get('llm_router_used')})")
+
+        # Enable LLM router and trigger a retry scenario
+        settings.enable_llm_router = True
+        test_state_llm = {
+            "draft": "Test email draft needing improvement",
+            "error": None,
+            "retry_count": 0,
+            "needs_improvement": True,
+            "metadata": {"issues": ["tone adjustment needed"]}
+        }
+        result_llm = router(test_state_llm)
+        print(f"✅ LLM routing decision: {result_llm.get('routing_decision', 'N/A')} (LLM used: {result_llm.get('metadata', {}).get('llm_router_used')})")
+        if result_llm.get('metadata', {}).get('decision_reason'):
+            print(f"   Reason: {result_llm['metadata']['decision_reason']}")
         return result
     except Exception as e:
         print(f"❌ Router Agent failed: {e}")

@@ -10,8 +10,7 @@ from src.agents.intent_detector import IntentDetectorAgent
 from src.agents.draft_writer import DraftWriterAgent
 from src.agents.tone_stylist import ToneStylistAgent
 from src.agents.personalization import PersonalizationAgent
-from src.agents.review_agent import ReviewAgent
-from src.agents.refinement import RefinementAgent
+from src.agents.review import ReviewAgent
 from src.agents.router import RouterAgent
 from src.utils.llm_wrapper import make_wrapper, LLMWrapper
 from src.utils.observability import activate_langsmith
@@ -57,7 +56,6 @@ def create_agents(llm: ChatGoogleGenerativeAI) -> Dict[str, Callable[[Dict], Dic
     tone_stylist = ToneStylistAgent(llm, llm_wrapper=wrapper)
     personalization = PersonalizationAgent(llm, llm_wrapper=wrapper)
     review = ReviewAgent(llm, llm_wrapper=wrapper)
-    refinement = RefinementAgent(llm, llm_wrapper=wrapper)
     router = RouterAgent(llm)
 
     return {
@@ -67,7 +65,6 @@ def create_agents(llm: ChatGoogleGenerativeAI) -> Dict[str, Callable[[Dict], Dic
         "tone_stylist": tone_stylist,
         "personalization": personalization,
         "review": review,
-        "refinement": refinement,
         "router": router,
     }
 
@@ -81,7 +78,6 @@ def default_graph_order() -> list[str]:
         "tone_stylist",
         "personalization",
         "review",
-        "refinement",
         "router",
     ]
 

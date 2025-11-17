@@ -22,7 +22,7 @@ from agents.intent_detector import IntentDetectorAgent, EmailIntent
 from agents.draft_writer import DraftWriterAgent
 from agents.tone_stylist import ToneStylistAgent
 from agents.personalization import PersonalizationAgent
-from agents.review_agent import ReviewAgent
+from agents.review import ReviewAgent
 from agents.router import RouterAgent
 from langchain_google_genai import ChatGoogleGenerativeAI
 

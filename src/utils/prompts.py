@@ -370,3 +370,30 @@ I hope this email finds you well.
 I look forward to hearing from you.
 
 Best regards"""
+
+# Router Agent Prompt (LLM-based decision making)
+# Expects the model to output a STRICT JSON object with keys: decision, reason.
+# decision must be one of: continue, retry, fallback.
+ROUTER_AGENT_PROMPT = ChatPromptTemplate.from_template(
+   """
+You are an expert workflow controller deciding the next action in an email generation pipeline.
+
+Context Summary:
+{state_summary}
+
+Decision Options:
+- continue: Proceed to next normal step
+- retry: Re-run the previous improvement/refinement step (minor fix needed)
+- fallback: Give up on further LLM processing and use a deterministic fallback draft
+
+Rules:
+1. Use 'retry' if there are fixable issues and retry_count < max_retries.
+2. Use 'fallback' only if errors persist after max retries OR draft is unusable.
+3. Use 'continue' if the draft is acceptable and no blocking issues remain.
+4. Keep reasoning concise (<= 25 words).
+5. If unsure, choose deterministic safety: retry if retries remain else fallback.
+
+Return ONLY valid JSON: {"decision": "continue|retry|fallback", "reason": "short explanation"}
+Do NOT wrap JSON in markdown fences. No additional text.
+"""
+)

@@ -6,8 +6,9 @@ import json
 class Settings(BaseSettings):
     # API Configuration
     gemini_api_key: str
-    gemini_model: str = "gemini-2.0-flash"
-    
+    #gemini_model: str = "gemini-2.0-flash"
+    gemini_model: str = "gemini-2.0-flash-lite"
+
     # Application Settings
     app_name: str = "AI Email Assistant"
     debug: bool = False
@@ -19,6 +20,12 @@ class Settings(BaseSettings):
     
     # Stub/Test Mode
     donotusegemini: bool = False
+
+    # Experimental / Advanced Agent Behavior
+    # When true, RouterAgent will use an LLM to decide among continue | retry | fallback
+    # rather than purely deterministic rules. Falls back automatically if disabled or
+    # if model invocation fails.
+    enable_llm_router: bool = True
 
     # Observability / Tracing (LangSmith / LangChain)
     enable_langsmith: bool = False  # master feature toggle
