@@ -286,6 +286,9 @@ PERSONALIZATION_PROMPT = ChatPromptTemplate.from_template(
    - Signature: {signature}
    - Writing Style Notes: {style_notes}
 
+   Optional Similar Past Emails (style/reference only; never copy private details):
+   {reference_context}
+
    Target Length: {target_length} words (stay within ±5%)
 
    CRITICAL INSTRUCTIONS for personalization:
@@ -299,6 +302,7 @@ PERSONALIZATION_PROMPT = ChatPromptTemplate.from_template(
    8. Keep the core message intact
    9. Maintain the target length by condensing if necessary; do not significantly exceed it.
    10. Do NOT alter the greeting line or the recipient name; preserve them exactly as in the original draft. Never substitute the recipient with the sender's name.
+   11. If similar emails are provided, use their tone/structure as inspiration only; do not reveal or re-use their recipients, names, or sensitive details.
 
    Return ONLY the personalized email with NO placeholder brackets.
    """

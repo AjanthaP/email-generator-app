@@ -172,14 +172,13 @@ async def regenerate_draft(payload: RegenerateRequest) -> RegenerateResponse:
             styled_draft = await run_in_threadpool(
                 tone_stylist.adjust_tone,
                 payload.edited_draft,
-                payload.tone,
-                payload.length_preference or 170
+                payload.tone
             )
             
             # Step 2: Personalization
             personalizer = PersonalizationAgent(llm, llm_wrapper=wrapper)
             personalization_state = {
-                "draft": styled_draft,
+                "styled_draft": styled_draft,
                 "user_id": payload.user_id,
                 "length_preference": payload.length_preference
             }

@@ -108,10 +108,25 @@ class MemoryManager:
             logger.debug("Re-checking database availability...")
             self._use_db = self._check_db_available()
         
+        draft_id: Optional[str] = None
+        content_for_index: str = draft_data.get("content") or draft_data.get("draft", "")
+
         if self._use_db:
             try:
-                self._save_draft_db(user_id, draft_data)
+                draft_id = self._save_draft_db(user_id, draft_data)
                 logger.info(f"Draft saved to PostgreSQL for user {user_id}")
+                # Fire-and-forget indexing to Chroma (if enabled)
+                try:
+                    if draft_id and content_for_index:
+                        from src.utils.vector_store import index_draft_async
+                        index_draft_async(
+                            user_id=user_id,
+                            draft_id=str(draft_id),
+                            content=content_for_index,
+                            metadata=draft_data.get("metadata", {}),
+                        )
+                except Exception:
+                    logger.debug("Vector indexing enqueue failed (DB path)")
                 return
             except Exception as e:
                 logger.error(f"Failed to save draft to database: {e}", exc_info=True)
@@ -119,9 +134,21 @@ class MemoryManager:
         
         # Fallback to JSON files
         logger.info(f"Saving draft to JSON file for user {user_id}")
-        self._save_draft_json(user_id, draft_data)
+        draft_id = self._save_draft_json(user_id, draft_data)
+        # Background indexing for JSON fallback as well
+        try:
+            if draft_id and content_for_index:
+                from src.utils.vector_store import index_draft_async
+                index_draft_async(
+                    user_id=user_id,
+                    draft_id=str(draft_id),
+                    content=content_for_index,
+                    metadata=draft_data.get("metadata", {}),
+                )
+        except Exception:
+            logger.debug("Vector indexing enqueue failed (JSON path)")
 
-    def _save_draft_db(self, user_id: str, draft_data: Dict[str, Any]) -> None:
+    def _save_draft_db(self, user_id: str, draft_data: Dict[str, Any]) -> str:
         """Save draft to PostgreSQL database."""
         from src.db.models import Draft, UserProfile
         
@@ -158,6 +185,7 @@ class MemoryManager:
             db.add(draft)
             db.commit()
             logger.debug(f"Saved draft to database for user {user_id}")
+            return str(draft.id)
         except Exception as e:
             db.rollback()
             raise e
@@ -165,7 +193,7 @@ class MemoryManager:
             if self.db_session is None:  # Close only if we created it
                 db.close()
 
-    def _save_draft_json(self, user_id: str, draft_data: Dict[str, Any]) -> None:
+    def _save_draft_json(self, user_id: str, draft_data: Dict[str, Any]) -> str:
         """Save draft to JSON file (fallback)."""
         user_drafts_file = self.drafts_dir / f"{user_id}_drafts.json"
 
@@ -181,10 +209,19 @@ class MemoryManager:
         if "created_at" not in draft_data:
             draft_data["created_at"] = datetime.utcnow().isoformat()
 
-        drafts.append(draft_data)
+        # Synthesize a local ID for JSON storage
+        try:
+            import uuid
+            local_id = f"json-{uuid.uuid4()}"
+        except Exception:
+            local_id = f"json-{int(datetime.utcnow().timestamp()*1000)}"
+
+        draft_data_with_id = {**draft_data, "id": local_id}
+        drafts.append(draft_data_with_id)
 
         with open(user_drafts_file, "w") as f:
             json.dump(drafts, f, indent=2)
+        return local_id
 
     def load_drafts(self, user_id: str, limit: int = None) -> List[Dict[str, Any]]:
         """Load all drafts for a user.

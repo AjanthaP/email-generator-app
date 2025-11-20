@@ -14,6 +14,7 @@ import json
 import os
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
 import re
+from textwrap import shorten
 
 
 class PersonalizationAgent:
@@ -147,6 +148,27 @@ class PersonalizationAgent:
         """
         try:
             profile = self.get_profile(user_id)
+            # Build optional reference context from similar past drafts via Chroma
+            reference_context = ""
+            try:
+                from src.utils.vector_store import get_vector_store
+                store = get_vector_store()
+                if store is not None:
+                    sims = store.query_similar(user_id=user_id, query_text=draft, k=3)
+                    if sims:
+                        lines = []
+                        for i, item in enumerate(sims, start=1):
+                            txt = item.get("content") or ""
+                            meta = item.get("metadata") or {}
+                            created = meta.get("created_at") or meta.get("timestamp") or meta.get("date")
+                            prefix = f"Example {i}" + (f" (from {created})" if created else "")
+                            # Limit each sample to ~400 chars to keep prompt lean
+                            snippet = shorten(" ".join(txt.split()), width=400, placeholder="…")
+                            lines.append(f"- {prefix}:\n  {snippet}")
+                        reference_context = "\n".join(lines)
+            except Exception:
+                # Safe to ignore retrieval errors; fall back to no context
+                reference_context = ""
             # Ensure the signature includes the user's name if available
             user_name = (profile.get("user_name") or "").strip()
             signature = profile.get("signature", "\n\nBest regards")
@@ -181,6 +203,7 @@ class PersonalizationAgent:
                 "signature": sig_final,
                 "style_notes": profile.get("style_notes", "professional"),
                 "target_length": target,
+                "reference_context": reference_context,
             })
             
             personalized = response.content.strip()
