@@ -404,18 +404,33 @@ function DeveloperTrace({ trace }: DeveloperTraceProps) {
 function EmailComposer() {
   const [developerMode, setDeveloperMode] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [userInput, setUserInput] = useState('');
+  const [tone, setTone] = useState('formal');
 
   const handleGenerate = async () => {
-    const data = await generateEmail(userInput, tone, developerMode);
+    const data = await generateEmail(userInput, tone, 'user123', developerMode);
     setResult(data);
   };
 
   return (
     <div>
       {/* Settings toggle */}
-      <SettingsPanel 
-        developerMode={developerMode}
-        setDeveloperMode={setDeveloperMode}
+      <div className="settings">
+        <label>
+          <input
+            type="checkbox"
+            checked={developerMode}
+            onChange={(e) => setDeveloperMode(e.target.checked)}
+          />
+          Developer Mode
+        </label>
+      </div>
+
+      {/* Input */}
+      <textarea
+        value={userInput}
+        onChange={(e) => setUserInput(e.target.value)}
+        placeholder="Describe your email..."
       />
 
       {/* Generate button */}
@@ -427,15 +442,13 @@ function EmailComposer() {
           {/* Main draft display */}
           <div className="draft-box">
             <h2>Your Email Draft</h2>
-            <textarea value={result.final_draft} />
+            <textarea value={result.draft} readOnly />
           </div>
 
           {/* Developer trace (only shown when developer_mode was enabled) */}
           {result.developer_trace && (
             <DeveloperTrace trace={result.developer_trace} />
           )}
-
-          {/* Review notes, metadata, etc. */}
         </div>
       )}
     </div>
@@ -443,7 +456,68 @@ function EmailComposer() {
 }
 ```
 
-### Styling Suggestions (Tailwind CSS)
+---
+
+## Testing Developer Mode
+
+### cURL Test
+
+```bash
+curl -X POST https://your-backend.railway.app/email/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Write a follow-up email to check on proposal status",
+    "user_id": "test_user",
+    "tone": "professional",
+    "developer_mode": true
+  }'
+```
+
+### PowerShell Test
+
+```powershell
+$body = @{
+    prompt = "generate test email to check smtp working"
+    user_id = "ajantha22ma_gmail_com"
+    tone = "casual"
+    length_preference = 150
+    save_to_history = $true
+    use_stub = $false
+    reset_context = $false
+    developer_mode = $true
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "https://your-backend.railway.app/email/generate" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body $body
+```
+
+Expected response includes `developer_trace` array with 8 steps (one for each agent).
+
+---
+
+## Summary
+
+✅ **Backend:** Fully implemented in `langgraph_flow.py`  
+✅ **API Schema:** `developer_mode` field added to request/response  
+✅ **API Endpoint:** Passes `developer_mode` to workflow and returns trace  
+✅ **Response:** Includes `developer_trace` when enabled
+
+**To use:**
+1. Add `"developer_mode": true` to your API request
+2. Access `result.developer_trace` in the response
+3. Display the trace in your frontend UI
+4. Each trace entry shows the agent name and its output snapshot
+
+**Trace contains:**
+- All 8 agents in execution order
+- Snapshots with: `parsed_data`, `intent`, `draft`, `tone`, `personalized_draft`, `final_draft`, `metadata`
+- No performance impact when disabled (default: `false`)
+
+---
+
+_Last Updated: November 15, 2025_
 
 ```tsx
 // Alternative compact view with tabs

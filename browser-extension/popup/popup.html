@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Email Assistant</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <header class="popup-header">
+      <h1>✨ AI Email Assistant</h1>
+      <div class="status-indicator" id="statusIndicator">
+        <span class="status-dot"></span>
+        <span id="statusText">Checking...</span>
+      </div>
+    </header>
+
+    <main class="popup-main">
+      <!-- API Key Section -->
+      <section class="settings-section">
+        <h2>Settings</h2>
+        <div class="form-group">
+          <label for="apiKey">API Key</label>
+          <div class="input-with-button">
+            <input 
+              type="password" 
+              id="apiKey" 
+              placeholder="Enter your API key"
+              autocomplete="off"
+            >
+            <button id="toggleApiKey" class="icon-button" title="Show/Hide">👁️</button>
+          </div>
+          <small class="help-text">Staging keys: demo-key-001, test-key-staging</small>
+        </div>
+
+        <div class="form-group">
+          <label for="toneSelect">Default Tone</label>
+          <select id="toneSelect">
+            <option value="professional">Professional</option>
+            <option value="friendly">Friendly</option>
+            <option value="formal">Formal</option>
+            <option value="casual">Casual</option>
+            <option value="enthusiastic">Enthusiastic</option>
+          </select>
+        </div>
+
+        <button id="saveSettings" class="primary-button">Save Settings</button>
+        <div id="saveStatus" class="save-status"></div>
+      </section>
+
+      <!-- Quick Generate Section -->
+      <section class="quick-generate-section">
+        <h2>Quick Generate</h2>
+        <div class="form-group">
+          <label for="quickRecipient">To (optional)</label>
+          <input type="text" id="quickRecipient" placeholder="recipient@example.com">
+        </div>
+        <div class="form-group">
+          <label for="quickSubject">Subject (optional)</label>
+          <input type="text" id="quickSubject" placeholder="Email subject">
+        </div>
+        <div class="form-group">
+          <label for="quickContext">Context</label>
+          <textarea 
+            id="quickContext" 
+            placeholder="Describe what you want to write about..."
+            rows="4"
+          ></textarea>
+        </div>
+        <button id="generateQuick" class="primary-button">Generate Draft</button>
+        <div id="quickResult" class="quick-result"></div>
+      </section>
+
+      <!-- Usage Stats -->
+      <section class="usage-section">
+        <h2>Usage</h2>
+        <div class="usage-stats">
+          <div class="stat-item">
+            <span class="stat-label">Drafts Today</span>
+            <span class="stat-value" id="draftsToday">-</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Quota Remaining</span>
+            <span class="stat-value" id="quotaRemaining">-</span>
+          </div>
+        </div>
+        <button id="refreshUsage" class="secondary-button">Refresh</button>
+      </section>
+    </main>
+
+    <footer class="popup-footer">
+      <small>Version 1.0.0 - Staging</small>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

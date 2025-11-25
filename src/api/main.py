@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError, HTTPException
 
 from src.utils.config import settings
-from .routers import auth, email, users, debug
+from .routers import auth, email, users, debug, extension
 from .routers import mcp as mcp_router
 from .schemas import HealthCheckResponse
 
@@ -78,6 +78,10 @@ for var in [
     if val and val not in origins:
         origins.append(val)
 
+# Allow browser extension origins (Chrome/Edge and Firefox)
+# Note: In production, you may want to restrict to specific extension IDs
+# Chrome: chrome-extension://<extension-id>
+# Firefox: moz-extension://<extension-id>
 print(f"[startup] CORS allow_origins resolved: {origins}")
 
 app.add_middleware(
@@ -86,8 +90,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    # Allow Vercel preview deployments like https://<branch>-<hash>-<project>.vercel.app
-    allow_origin_regex=r"^https://[a-z0-9-]+\.vercel\.app$",
+    # Allow Vercel preview deployments and browser extensions
+    allow_origin_regex=r"^(https://[a-z0-9-]+\.vercel\.app|chrome-extension://[a-z]+|moz-extension://[a-z0-9-]+)$",
 )
 
 
@@ -205,6 +209,7 @@ async def debug_db_status():
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(email.router, prefix="/api/email", tags=["email"])
 app.include_router(users.router, prefix="/api/users", tags=["users"])
+app.include_router(extension.router, prefix="/api", tags=["extension"])
 app.include_router(mcp_router.router, prefix="/api", tags=["mcp"])
 if settings.debug:
     app.include_router(debug.router, prefix="/api/debug", tags=["debug"])

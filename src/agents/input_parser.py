@@ -132,6 +132,7 @@ class InputParserAgent:
             if not parsed_data.get("recipient_name"):
                 parsed_data["recipient_name"] = "Recipient"
             # Ensure required keys exist to minimize validation noise
+            # When missing, use simple heuristics from user_input
             parsed_data.setdefault("email_purpose", user_input[:200])
             parsed_data.setdefault("key_points", [user_input] if len(user_input) < 100 else [user_input[:100]])
             parsed_data.setdefault("tone_preference", "formal")

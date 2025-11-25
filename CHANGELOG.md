@@ -4,7 +4,25 @@ All notable changes to the Email Generator App project.
 
 ---
 
-## [Recent Updates] - 2024
+## [Recent Updates] - November 15, 2025
+
+### Developer Mode - API Integration Fix
+- **Issue**: Developer mode was implemented in workflow but not exposed through API
+- **Fix**: 
+  - Added `developer_mode` field to `EmailGenerateRequest` schema
+  - Added `developer_trace` field to `EmailGenerateResponse` schema
+  - Updated `/email/generate` endpoint to pass `developer_mode` to workflow
+  - API now returns `developer_trace` array when `developer_mode=true`
+- **Usage**:
+  ```json
+  POST /email/generate
+  {
+    "prompt": "test email",
+    "user_id": "user123",
+    "developer_mode": true
+  }
+  ```
+- **Response includes**: 8-step trace with snapshots from each agent (input_parser, intent_detector, draft_writer, tone_stylist, personalization, review, refinement, router)
 
 ### Developer Mode Implementation
 - **Feature**: Added LLM output tracing for workflow debugging
@@ -12,8 +30,22 @@ All notable changes to the Email Generator App project.
   - Added `developer_mode` parameter to `execute_workflow()` and `generate_email()` in `langgraph_flow.py`
   - When `developer_mode=True`, captures per-agent snapshots in `developer_trace` list
   - Each trace entry contains: `{"agent": "agent_name", "snapshot": {...}}` with LLM outputs
-  - Returns trace in response: `{"email": {...}, "developer_trace": [...]}`
+  - Returns trace in response: `{"draft": {...}, "developer_trace": [...]}`
 - **Frontend Guide**: See `REACT_DEVELOPER_MODE.md` for React implementation details
+
+### Documentation Consolidation
+- **Consolidated Files**:
+  - Created `PRODUCTION_SETUP_GUIDE.md` - Comprehensive deployment guide covering:
+    - OAuth 2.0 configuration
+    - Backend deployment (Railway)
+    - Frontend deployment (Vercel/Netlify/Railway)
+    - Production infrastructure
+    - Monitoring, security, troubleshooting
+  - Created `CHANGELOG.md` - Single living document for all changes
+- **Removed Files**: 
+  - Deleted 19 redundant summary/troubleshooting docs
+  - Consolidated OAuth, Railway, and Frontend deployment guides into one
+- **Result**: Streamlined from 34+ MD files to 9 focused documentation files
 
 ### Streamlit Removal
 - **Removed Files**:
@@ -42,12 +74,12 @@ All notable changes to the Email Generator App project.
 ### Documentation Updates
 - **Updated Files**:
   - `README.md`: Removed Streamlit references, updated API examples with new endpoints
-  - `RAILWAY_DEPLOYMENT.md`: Updated curl examples with direct endpoint paths
-  - `POSTGRESQL_SETUP_RAILWAY.md`: Updated endpoint references
+  - `REACT_DEVELOPER_MODE.md`: Updated with API integration details and testing examples
+  - `PRODUCTION_SETUP_GUIDE.md`: Complete deployment guide with all infrastructure details
   - `frontend/README.md`: Updated API integration documentation
-  - `DRAFT_HISTORY_INVESTIGATION.md`: Updated endpoint references
 - **New Documentation**:
-  - `REACT_DEVELOPER_MODE.md`: Complete guide for implementing developer mode in React frontend
+  - `PRODUCTION_SETUP_GUIDE.md`: Consolidated OAuth, deployment, and infrastructure guide
+  - `CHANGELOG.md`: Single living changelog document
 
 ---
 
