@@ -3,7 +3,7 @@ Prompt templates for various agents in the email assistant workflow.
 These templates are used by LLM agents to generate structured outputs.
 """
 
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 
 # Input Parser Prompt (shared across InputParserAgent)
 INPUT_PARSER_PROMPT = ChatPromptTemplate.from_template(
