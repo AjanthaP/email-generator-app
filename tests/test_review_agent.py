@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from src.agents.review import ReviewAgent
+from src.utils.llm_response import extract_response_text
 
 
 def test_extract_response_text_from_content_blocks():
@@ -10,10 +10,10 @@ def test_extract_response_text_from_content_blocks():
         {"type": "text", "text": "Best regards"},
     ])
 
-    assert ReviewAgent._extract_response_text(response) == "Dear Jane,\nBest regards"
+    assert extract_response_text(response) == "Dear Jane,\nBest regards"
 
 
 def test_extract_response_text_from_string():
     response = SimpleNamespace(content="  Reviewed draft  ")
 
-    assert ReviewAgent._extract_response_text(response) == "Reviewed draft"
+    assert extract_response_text(response) == "Reviewed draft"

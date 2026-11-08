@@ -6,12 +6,13 @@ grammar, clarity, tone alignment, and completeness. It can suggest improvements
 or return the draft as-is if it meets quality standards.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from src.utils.prompts import REVIEW_AGENT_PROMPT
 import re
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
+from src.utils.llm_response import extract_response_text
 
 
 class ReviewAgent:
@@ -78,7 +79,7 @@ class ReviewAgent:
                 "target_length": target,
             })
 
-            improved_text = self._extract_response_text(response)
+            improved_text = extract_response_text(response)
             improved = improved_text.strip() != draft.strip()
 
             return {
@@ -98,21 +99,6 @@ class ReviewAgent:
                 "improved": False
             }
 
-    @staticmethod
-    def _extract_response_text(response: Any) -> str:
-        """Extract text from string or multimodal LangChain response content."""
-        content = getattr(response, "content", response)
-        if isinstance(content, str):
-            return content.strip()
-        if isinstance(content, list):
-            text_parts = [
-                block["text"]
-                for block in content
-                if isinstance(block, dict) and isinstance(block.get("text"), str)
-            ]
-            return "\n".join(text_parts).strip()
-        return str(content).strip() if content is not None else ""
-    
     def _quick_validation(self, draft: str) -> List[str]:
         """
         Quick validation checks on draft.

@@ -13,6 +13,7 @@ from src.utils.prompts import PERSONALIZATION_PROMPT
 import json
 import os
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
+from src.utils.llm_response import extract_response_text
 import re
 from textwrap import shorten
 
@@ -206,7 +207,7 @@ class PersonalizationAgent:
                 "reference_context": reference_context,
             })
             
-            personalized = response.content.strip()
+            personalized = extract_response_text(response) or f"{draft}{sig_final}"
 
             # Safety check: preserve original greeting/recipient if model drifted
             try:
