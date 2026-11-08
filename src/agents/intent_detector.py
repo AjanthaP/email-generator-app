@@ -12,6 +12,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from src.utils.prompts import INTENT_DETECTOR_PROMPT
 from enum import Enum
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
+from src.utils.llm_response import extract_response_text
+import re
 
 
 class EmailIntent(str, Enum):
@@ -27,6 +29,7 @@ class EmailIntent(str, Enum):
     INTRODUCTION = "introduction"
     NETWORKING = "networking"
     COMPLAINT = "complaint"
+    LEAVE_REQUEST = "leave_request"
 
 
 class IntentDetectorAgent:
@@ -70,6 +73,10 @@ class IntentDetectorAgent:
         Returns:
             str: Intent classification (e.g., "outreach", "follow_up")
         """
+        # Leave requests need a dedicated template and should not become outreach.
+        if self._is_leave_request(parsed_data):
+            return EmailIntent.LEAVE_REQUEST.value
+
         # Stub / local mode: skip LLM invocation and use heuristic
         from src.utils.config import settings
         if getattr(settings, "donotusegemini", False) or not hasattr(self.llm, "invoke"):
@@ -93,12 +100,13 @@ class IntentDetectorAgent:
             chain = self.prompt | self.llm
             response = self.llm_wrapper.invoke_chain(chain, {
                 "intents": ", ".join(self.intents),
+                "original_request": parsed_data.get("original_request", ""),
                 "email_purpose": parsed_data.get("email_purpose", ""),
                 "key_points": ", ".join(parsed_data.get("key_points", [])),
                 "context": parsed_data.get("context", "")
             })
 
-            intent = response.content.strip().lower().replace(" ", "_")
+            intent = extract_response_text(response).lower().replace(" ", "_")
 
             # Validate intent
             if intent in self.intents:
@@ -111,10 +119,30 @@ class IntentDetectorAgent:
 
             # Fallback to outreach if no match found
             return "outreach"
-
         except Exception as e:
             print(f"Error detecting intent: {e}")
             return "outreach"
+
+    @staticmethod
+    def _is_leave_request(parsed_data: Dict) -> bool:
+        source_text = parsed_data.get("original_request", "")
+        key_points = parsed_data.get("key_points", [])
+        text = " ".join(
+            str(value)
+            for value in (
+                source_text,
+                parsed_data.get("email_purpose", ""),
+                parsed_data.get("context", ""),
+                *(key_points if isinstance(key_points, list) else []),
+            )
+        ).lower()
+        patterns = (
+            r"\b(?:sick|medical|annual|personal|vacation|maternity|paternity|parental)\s+leave\b",
+            r"\b(?:request|requesting|ask|asking|apply|applying)\s+(?:for\s+)?(?:a\s+)?(?:leave|time off|day off|absence)\b",
+            r"\b(?:leave|time off|day off|absence)\s+request\b",
+            r"\b(?:take|need)\s+(?:a\s+)?(?:day off|time off|leave)\b",
+        )
+        return any(re.search(pattern, text) for pattern in patterns)
     
     def __call__(self, state: Dict) -> Dict:
         """
@@ -126,5 +154,7 @@ class IntentDetectorAgent:
         Returns:
             Dict: Updated state with detected intent
         """
-        intent = self.detect(state["parsed_data"])
+        parsed_data = dict(state["parsed_data"])
+        parsed_data["original_request"] = state.get("user_input", "")
+        intent = self.detect(parsed_data)
         return {"intent": intent}

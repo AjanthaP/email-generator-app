@@ -11,6 +11,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from src.utils.prompts import TONE_STYLIST_PROMPT
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
+from src.utils.llm_response import extract_response_text
 
 
 class ToneStylistAgent:
@@ -112,7 +113,7 @@ class ToneStylistAgent:
                 **guidelines
             })
             
-            return response.content.strip()
+            return extract_response_text(response)
             
         except Exception as e:
             print(f"Error adjusting tone: {e}")

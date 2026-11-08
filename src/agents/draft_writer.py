@@ -20,8 +20,10 @@ from src.utils.prompts import (
     INTRODUCTION_PROMPT,
     NETWORKING_PROMPT,
     COMPLAINT_PROMPT,
+    LEAVE_REQUEST_PROMPT,
 )
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
+from src.utils.llm_response import extract_response_text
 
 
 class DraftWriterAgent:
@@ -67,6 +69,7 @@ class DraftWriterAgent:
             "introduction": INTRODUCTION_PROMPT,
             "networking": NETWORKING_PROMPT,
             "complaint": COMPLAINT_PROMPT,
+            "leave_request": LEAVE_REQUEST_PROMPT,
         }
     
     # Removed per-agent template builders; using shared imported templates instead
@@ -86,7 +89,7 @@ class DraftWriterAgent:
         # Stub / local mode early fallback
         from src.utils.config import settings
         if getattr(settings, "donotusegemini", False) or not hasattr(self.llm, "invoke"):
-            return self._fallback_draft(parsed_data)
+            return self._fallback_draft(parsed_data, intent)
 
         try:
             # Resolve target length from parsed constraints or workflow state later
@@ -117,17 +120,18 @@ class DraftWriterAgent:
                 "recipient": parsed_data.get("recipient_name", ""),
                 "purpose": parsed_data.get("email_purpose", ""),
                 "key_points": "\n- ".join(parsed_data.get("key_points", [])),
+                "original_request": parsed_data.get("original_request", ""),
                 "tone": tone,
                 "target_length": effective_length,
             })
-            draft = response.content.strip()
+            draft = extract_response_text(response)
             return draft
 
         except Exception as e:
             print(f"Error writing draft: {e}")
-            return self._fallback_draft(parsed_data)
+            return self._fallback_draft(parsed_data, intent)
     
-    def _fallback_draft(self, parsed_data: Dict) -> str:
+    def _fallback_draft(self, parsed_data: Dict, intent: str = "") -> str:
         """
         Generate fallback draft when LLM fails.
         
@@ -138,6 +142,24 @@ class DraftWriterAgent:
             str: Basic email structure
         """
         recipient = parsed_data.get('recipient_name', 'there')
+        if intent == "leave_request":
+            request = parsed_data.get("original_request", "").lower()
+            leave_type = next(
+                (
+                    f"{value} leave"
+                    for value in ("sick", "medical", "annual", "personal", "vacation")
+                    if f"{value} leave" in request
+                ),
+                "leave",
+            )
+            reason = " due to a cold" if "cold" in request else ""
+            return (
+                f"Dear {recipient},\n\n"
+                f"I am writing to request {leave_type}{reason}.\n"
+                "Please let me know if you need any further information.\n\n"
+                "Best regards"
+            )
+
         purpose = parsed_data.get('email_purpose', '')
         key_points = parsed_data.get('key_points', [])
         
@@ -167,9 +189,11 @@ class DraftWriterAgent:
         """
         # Make workflow length available to write()
         self._workflow_length = state.get("length_preference")  # type: ignore[attr-defined]
+        parsed_data = dict(state["parsed_data"])
+        parsed_data.setdefault("original_request", state.get("user_input", ""))
         draft = self.write(
             intent=state["intent"],
-            parsed_data=state["parsed_data"],
+            parsed_data=parsed_data,
             tone=state.get("tone", "formal")
         )
         return {"draft": draft}

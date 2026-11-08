@@ -14,6 +14,7 @@ from src.utils.prompts import INPUT_PARSER_PROMPT
 from pydantic import BaseModel, Field, field_validator, ValidationError
 import json
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
+from src.utils.llm_response import extract_response_text
 
 
 class ParsedInput(BaseModel):
@@ -96,7 +97,7 @@ class InputParserAgent:
             response = self.llm_wrapper.invoke_chain(chain, {"user_input": user_input})
 
             # Extract JSON from response
-            content = response.content
+            content = extract_response_text(response)
 
             # Handle markdown code blocks
             if "```json" in content:
@@ -190,8 +191,10 @@ class InputParserAgent:
         """
         parsed = self.parse(state["user_input"])
         
+        parsed_data = parsed.model_dump()
+        parsed_data["original_request"] = state["user_input"]
         return {
-            "parsed_data": parsed.model_dump(),
+            "parsed_data": parsed_data,
             "recipient": parsed.recipient_name,
             "intent_hint": parsed.email_purpose
         }
