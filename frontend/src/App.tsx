@@ -765,11 +765,12 @@ function App() {
               </div>
 
               <textarea
-                className="draft__content"
+                className="draft__editor"
                 id="draft"
                 value={draftText}
                 onChange={handleDraftChange}
                 rows={16}
+                aria-label="Generated email draft"
               />
 
               <div className="draft__actions">

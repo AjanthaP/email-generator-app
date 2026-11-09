@@ -30,6 +30,7 @@ class EmailIntent(str, Enum):
     NETWORKING = "networking"
     COMPLAINT = "complaint"
     LEAVE_REQUEST = "leave_request"
+    GENERIC = "generic"
 
 
 class IntentDetectorAgent:
@@ -94,7 +95,7 @@ class IntentDetectorAgent:
                 return "information_request"
             if any(k in purpose for k in ["status", "update"]):
                 return "status_update"
-            return "outreach"
+            return EmailIntent.GENERIC.value
 
         try:
             chain = self.prompt | self.llm
@@ -117,11 +118,11 @@ class IntentDetectorAgent:
                 if valid_intent in intent or intent in valid_intent:
                     return valid_intent
 
-            # Fallback to outreach if no match found
-            return "outreach"
+            # Unknown or unsupported requests should not be forced into outreach.
+            return EmailIntent.GENERIC.value
         except Exception as e:
             print(f"Error detecting intent: {e}")
-            return "outreach"
+            return EmailIntent.GENERIC.value
 
     @staticmethod
     def _is_leave_request(parsed_data: Dict) -> bool:

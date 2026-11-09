@@ -279,6 +279,7 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  min-width: 0;
 }
 
 .draft__loading {
@@ -374,16 +375,20 @@
 }
 
 .draft__editor {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 320px;
   background: rgba(15, 23, 42, 0.65);
   border-radius: 16px;
   padding: 1.25rem;
   border: 1px solid rgba(99, 102, 241, 0.25);
-  font-family: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco,
-    Consolas, 'Liberation Mono', 'Courier New', monospace;
-  font-size: 0.95rem;
-  min-height: 320px;
-  color: inherit;
+  color: #e2e8f0;
+  font: inherit;
+  line-height: 1.7;
   resize: vertical;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .draft__editor:focus {
@@ -644,4 +649,3 @@
     top: 140px;
   }
 }
-

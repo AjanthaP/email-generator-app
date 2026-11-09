@@ -21,6 +21,7 @@ from src.utils.prompts import (
     NETWORKING_PROMPT,
     COMPLAINT_PROMPT,
     LEAVE_REQUEST_PROMPT,
+    GENERIC_EMAIL_PROMPT,
 )
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
 from src.utils.llm_response import extract_response_text
@@ -70,6 +71,7 @@ class DraftWriterAgent:
             "networking": NETWORKING_PROMPT,
             "complaint": COMPLAINT_PROMPT,
             "leave_request": LEAVE_REQUEST_PROMPT,
+            "generic": GENERIC_EMAIL_PROMPT,
         }
     
     # Removed per-agent template builders; using shared imported templates instead
@@ -113,7 +115,7 @@ class DraftWriterAgent:
             else:
                 effective_length = 50 if requested_length < 50 else requested_length
 
-            template = self.intent_templates.get(intent, self.intent_templates["outreach"])
+            template = self.intent_templates.get(intent, self.intent_templates["generic"])
             prompt = ChatPromptTemplate.from_template(template)
             chain = prompt | self.llm
             response = self.llm_wrapper.invoke_chain(chain, {
@@ -142,6 +144,10 @@ class DraftWriterAgent:
             str: Basic email structure
         """
         recipient = parsed_data.get('recipient_name', 'there')
+        if intent == "generic":
+            request = parsed_data.get("original_request") or parsed_data.get("email_purpose", "")
+            return f"Dear {recipient},\n\n{request}\n\nBest regards"
+
         if intent == "leave_request":
             request = parsed_data.get("original_request", "").lower()
             leave_type = next(

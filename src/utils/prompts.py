@@ -43,6 +43,7 @@ INTENT_DETECTOR_PROMPT = ChatPromptTemplate.from_template(
 
    Use "leave_request" for requests for sick, medical, annual, personal, or other
    time off. Do not classify a leave request as outreach.
+   Use "generic" when none of the listed specific categories clearly matches.
 
    Original User Request: {original_request}
    Email Purpose: {email_purpose}
@@ -231,6 +232,22 @@ Clearly request the leave and include the reason only if the user provided one.
 Do not invent dates, duration, medical details, or other facts. Do not add unrelated
 business or sales content.
 TARGET LENGTH: About {target_length} words; keep the request direct and respectful.
+"""
+
+GENERIC_EMAIL_PROMPT = """Write an email that fulfills the user's request without
+forcing it into a specific email category or adding unrelated content.
+
+Original User Request (authoritative):
+{original_request}
+
+Recipient, if provided: {recipient}
+Additional purpose: {purpose}
+Key points: {key_points}
+Tone: {tone}
+
+Preserve the user's intent and important details. Do not invent facts or add
+unsolicited sales, networking, or follow-up language.
+TARGET LENGTH: About {target_length} words unless the user requested otherwise.
 """
 
 # Tone Stylist Prompt (shared across ToneStylistAgent)
