@@ -64,7 +64,7 @@ Same pattern: call `self.llm_wrapper.invoke_chain(chain, params)` instead of `ch
 
 How to wire the wrapper in `create_agents`
 -------------------------------------------
-Update `src/workflow/langgraph_flow.py` where agents are created. Instead of passing raw `ChatGoogleGenerativeAI` to each agent, create a `LLMWrapper` and pass that (and optionally the raw LLM if needed):
+Update `src/workflow/pipeline.py` where agents are created. Instead of passing raw `ChatGoogleGenerativeAI` to each agent, create a `LLMWrapper` and pass that (and optionally the raw LLM if needed):
 
 ```python
 from src.utils.llm_wrapper import LLMWrapper
@@ -81,7 +81,7 @@ Agents can accept an optional `llm_wrapper` argument, defaulting to `make_wrappe
 
 Fallback / metadata behavior
 ----------------------------
-- Keep the existing stub fallback in `langgraph_flow.execute_workflow`. The wrapper increases the chance the real LLM will succeed by retrying transient errors and honoring delays.
+- Keep the existing stub fallback in `pipeline.execute_workflow`. The wrapper increases the chance the real LLM will succeed by retrying transient errors and honoring delays.
 - When a hard quota/429 is returned and not recoverable (or after exhausted retries), the wrapper will raise `LLMWrapperError`. The workflow's existing exception handling detects quota errors and falls back to the stub.
 
 Next steps (recommended)

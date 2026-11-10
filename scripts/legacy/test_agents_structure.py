@@ -14,7 +14,7 @@ import inspect
 load_dotenv()
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'src'))
 
 from utils.config import Settings
 from agents.input_parser import InputParserAgent, ParsedInput

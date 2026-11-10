@@ -1,5 +1,5 @@
 import pytest
-from src.workflow.langgraph_flow import execute_workflow
+from src.workflow.pipeline import execute_workflow
 
 class FakeQuotaError(Exception):
     pass

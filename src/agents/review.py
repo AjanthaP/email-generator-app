@@ -13,6 +13,9 @@ from src.utils.prompts import REVIEW_AGENT_PROMPT
 import re
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
 from src.utils.llm_response import extract_response_text
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ReviewAgent:
@@ -90,7 +93,7 @@ class ReviewAgent:
             }
 
         except Exception as e:
-            print(f"Error reviewing draft: {e}")
+            logger.exception(f"Error reviewing draft: {e}")
             # Return original draft if review fails
             return {
                 "approved": True,

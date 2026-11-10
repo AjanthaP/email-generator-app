@@ -12,10 +12,10 @@ The repositories are now connected! The `frontend-repo` remote has been added an
 
 ```powershell
 # Run the sync script from repo root
-.\sync-frontend.ps1
+.\scripts\sync-frontend.ps1
 
 # If push is rejected (history diverged), force push:
-.\sync-frontend.ps1 -Force
+.\scripts\sync-frontend.ps1 -Force
 ```
 
 ### Method 2: Manual Git Subtree Commands
@@ -47,7 +47,7 @@ git push origin master
 
 # 3. Sync to frontend repo
 cd ..
-.\sync-frontend.ps1
+.\scripts\sync-frontend.ps1
 ```
 
 ### What Gets Synced
@@ -83,7 +83,7 @@ email-generator-app-frontend/ (separate repo - main branch)
 
 The `email-generator-app-frontend` repository is connected to Vercel:
 - **Auto-deploys** when you push to `main` branch
-- After running `.\sync-frontend.ps1`, Vercel will deploy automatically
+- After running `.\scripts\sync-frontend.ps1`, Vercel will deploy automatically
 - Check deployment status at: https://vercel.com/dashboard
 
 ## Recent Changes Synced
@@ -100,7 +100,7 @@ If you get a rejection when syncing:
 
 ```powershell
 # Force push to override frontend repo
-.\sync-frontend.ps1 -Force
+.\scripts\sync-frontend.ps1 -Force
 ```
 
 ### "Remote frontend-repo not found"

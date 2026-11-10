@@ -135,7 +135,7 @@ Returns ordered snapshots after each agent with keys: `parsed_data`, `intent`, `
 
 Python:
 ```python
-from src.workflow.langgraph_flow import generate_email
+from src.workflow.pipeline import generate_email
 result = generate_email("Follow up about proposal", developer_mode=True)
 for step in result["developer_trace"]:
       print(step["agent"], step["snapshot"].keys())

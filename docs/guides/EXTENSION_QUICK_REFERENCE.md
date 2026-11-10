@@ -4,7 +4,7 @@
 
 ### 1️⃣ Start Backend
 ```powershell
-.\start-extension-test.ps1
+.\scripts\start-extension-test.ps1
 ```
 Or manually:
 ```powershell
@@ -78,7 +78,7 @@ docs/
 |---------|----------|
 | Button not appearing | Wait 5s, refresh page (CTRL+SHIFT+R) |
 | API key invalid | Use `demo-key-001` in extension settings |
-| Backend offline | Start server: `.\start-extension-test.ps1` |
+| Backend offline | Start server: `.\scripts\start-extension-test.ps1` |
 | CORS error | Restart backend (CORS already configured) |
 | Extension not loading | Check Chrome DevTools for errors |
 
@@ -104,14 +104,14 @@ docs/
 | `EXTENSION_TESTING_GUIDE.md` | Step-by-step testing instructions |
 | `EXTENSION_IMPLEMENTATION_SUMMARY.md` | Complete implementation details |
 | `browser-extension/README.md` | Extension installation guide |
-| `start-extension-test.ps1` | Automated startup script |
+| `scripts/start-extension-test.ps1` | Automated startup script |
 
 ---
 
 ## 🎯 What's Next
 
 ### Immediate (Today)
-1. Run `start-extension-test.ps1`
+1. Run `scripts/start-extension-test.ps1`
 2. Load extension and configure
 3. Test on Gmail and Outlook
 4. Verify all features work

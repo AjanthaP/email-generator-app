@@ -47,3 +47,24 @@ htmlcov/
 
 # Node modules (if node used)
 node_modules/
+
+# ---------------------------------------------------------------------------
+# Secrets: never commit real env files (templates end in .example)
+# ---------------------------------------------------------------------------
+/.env
+/.env.*
+!/.env.example
+!/.env.railway.example
+
+# ---------------------------------------------------------------------------
+# Local runtime data (JSON fallback storage, tokens, metrics)
+# ---------------------------------------------------------------------------
+data/**/*.json
+data/**/*.pickle
+data/chromadb/
+data/metrics/
+src/memory/*.json
+!data/**/.gitkeep
+
+# Frontend build cache
+frontend/.vite/

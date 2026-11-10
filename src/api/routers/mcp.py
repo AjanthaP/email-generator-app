@@ -13,7 +13,7 @@ class _EmailGeneratorAdapter:
     """
 
     async def generate_email(self, user_id: str, prompt: str, **context: Any) -> Dict[str, Any]:
-        from src.workflow.langgraph_flow import generate_email
+        from src.workflow.pipeline import generate_email
         tone = context.get("tone") or "formal"
         length_preference = context.get("length_preference")
         developer_mode = bool(context.get("developer_mode", False))

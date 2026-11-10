@@ -72,7 +72,7 @@ If you don't set up OAuth, the extension falls back to:
 After setup:
 ```powershell
 # Reload backend
-.\start-extension-test.ps1
+.\scripts\start-extension-test.ps1
 
 # In Chrome:
 # 1. Reload extension (chrome://extensions)

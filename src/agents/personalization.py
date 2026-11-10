@@ -16,6 +16,9 @@ from src.utils.llm_wrapper import LLMWrapper, make_wrapper
 from src.utils.llm_response import extract_response_text
 import re
 from textwrap import shorten
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class PersonalizationAgent:
@@ -111,15 +114,15 @@ class PersonalizationAgent:
                     "style_notes": db_profile.get("style_notes") or prefs.get("style_notes") or "professional and clear",
                     "preferences": prefs,
                 }
-                print(f"[PersonalizationAgent] Loaded profile from DB for user {user_id}: name={profile['user_name']}")
+                logger.info(f"[PersonalizationAgent] Loaded profile from DB for user {user_id}: name={profile['user_name']}")
                 return profile
         except Exception as e:
             # Log the exception to help debug
-            print(f"[PersonalizationAgent] Failed to load profile from DB for user {user_id}: {e}")
+            logger.warning(f"[PersonalizationAgent] Failed to load profile from DB for user {user_id}: {e}")
 
         # Fallback to local JSON profiles
         json_profile = self.profiles.get(user_id, self._get_default_profile())
-        print(f"[PersonalizationAgent] Using JSON profile for user {user_id}: name={json_profile.get('user_name', 'User')}")
+        logger.info(f"[PersonalizationAgent] Using JSON profile for user {user_id}: name={json_profile.get('user_name', 'User')}")
         return json_profile
     
     def save_profile(self, user_id: str, profile_data: Dict):
@@ -228,7 +231,7 @@ class PersonalizationAgent:
             return personalized
             
         except Exception as e:
-            print(f"Error personalizing draft: {e}")
+            logger.exception(f"Error personalizing draft: {e}")
             # Add basic signature if personalization fails
             profile = self.get_profile(user_id)
             signature = profile.get("signature", "\n\nBest regards")

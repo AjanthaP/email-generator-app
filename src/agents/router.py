@@ -11,6 +11,9 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 import json
 from src.utils.config import settings
 from src.utils.prompts import ROUTER_AGENT_PROMPT
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class RouterAgent:
@@ -190,7 +193,7 @@ Best regards"""
         is_valid, missing = self.validate_state(state)
         
         if not is_valid:
-            print(f"Warning: Missing fields in state: {missing}")
+            logger.warning(f"Warning: Missing fields in state: {missing}")
         
         # Decide next step (LLM or deterministic)
         decision_payload = self._llm_decide(state)

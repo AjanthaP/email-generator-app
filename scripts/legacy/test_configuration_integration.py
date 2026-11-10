@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 
 # Add src to path for testing
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 def create_test_env_file():
     """Create a temporary .env file for testing."""
