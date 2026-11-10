@@ -1,54 +1,86 @@
 # AI Email Assistant
 
-AI-powered email generation assistant built with FastAPI, LangGraph, and a React (Vite) frontend. It produces professional, personalized emails with controllable tone, length targeting, and developer trace visibility.
+AI-powered email generation assistant: a FastAPI backend that runs a sequential multi-agent pipeline on Google Gemini (via LangChain), a React (Vite) frontend, and a Gmail/Outlook browser extension. It produces personalized emails with controllable tone, length targeting, and a per-agent developer trace.
 
-> CURRENT STATUS (Nov 2025): Active components are FastAPI + Gemini (Google Generative AI) + PostgreSQL (Railway) + JSON local fallback storage + Agent workflow. Redis, ChromaDB, and MongoDB are NOT currently used in production; they remain optional feature flags for future expansion.
+> **Current status (November 2026)**
+> - **Backend:** Google Cloud Run, service `email-generator-app` in region `asia-south1`, at https://email-generator-app-956218235973.asia-south1.run.app
+> - **Frontend:** Vercel, at https://email-generator-app-frontend.vercel.app
+> - **LLM:** Google Gemini. The default model is `gemini-2.0-flash-lite`; override it with `GEMINI_MODEL`.
+> - **Database:** not connected in production yet. `DATABASE_URL` is not set on the Cloud Run service, so drafts, profiles and sessions use the JSON fallback inside the container. Cloud Run storage is temporary, so this data is lost whenever an instance restarts or a new revision is deployed. The PostgreSQL database from the earlier Railway setup still exists but is not wired to Cloud Run.
+> - **Not used in production:** Redis, ChromaDB and MongoDB. They remain optional feature flags.
+> - **Railway hosting is retired.** `railway.json`, `.github/workflows/railway-deploy.yml` and the Railway guides are leftovers from that setup.
 
 ## ✅ Core Features
-- Structured multi-agent workflow (parse → intent → draft → tone styling → personalization → review → refinement → routing)
+- Sequential multi-agent pipeline (parse → intent → draft → tone styling → personalization → review → routing)
 - Precise word-length targeting (±5% tolerance; adaptive trimming only if necessary)
-- Prompt-only refinement (no hardcoded regex cleanup)
+- Prompt-based review pass for tone, clarity, grammar and length (no hardcoded regex cleanup)
 - Recipient & greeting preservation safeguards
 - Personalization with profile-aware signature injection (no placeholders)
 - Developer Mode trace: per-agent post-step snapshots
 - Graceful LLM quota fallback to stubbed local generator
 - Centralized prompt templates (single source of truth)
+- Google and GitHub OAuth sign-in
+- Gmail/Outlook browser extension and an MCP (Model Context Protocol) endpoint
 
 ## 🗺️ High-Level Architecture
 ```
-React Frontend (Vite) ── REST calls ──▶ FastAPI Backend
-                                         │
-                                         ├─ LangGraph-inspired Sequential Agents
-                                         │    (InputParser → Intent → DraftWriter → ToneStylist → Personalization → Review → Refinement → Router)
-                                         │
-                                         ├─ Google Gemini (LLM) via langchain-google-genai
-                                         │
-                                         ├─ PostgreSQL (Railway)  ← primary persistence (profiles, drafts)
-                                         │
-                                         └─ JSON fallback (data/ ) when DB unavailable
+React frontend (Vercel) ──┐
+Browser extension ────────┼── HTTPS ──▶ FastAPI backend (Google Cloud Run, asia-south1)
+MCP clients ──────────────┘               │
+                                          ├─ Sequential agent pipeline (src/workflow/langgraph_flow.py)
+                                          │    InputParser → IntentDetector → DraftWriter → ToneStylist
+                                          │    → Personalization → Review → Router
+                                          │
+                                          ├─ Google Gemini via langchain-google-genai
+                                          │
+                                          ├─ PostgreSQL via DATABASE_URL (not connected in production yet)
+                                          │
+                                          └─ JSON fallback under data/ (used in production today; temporary on Cloud Run)
 ```
 
-Optional / Future (currently disabled): Redis cache, ChromaDB vector store, MongoDB alternative persistence.
+Despite its file name, `langgraph_flow.py` is a plain sequential loop over the agents, not a LangGraph graph.
+
+Optional, currently unused: Redis cache, ChromaDB vector store, MongoDB alternative persistence.
 
 ## 🚀 Deployment
 
-This project uses a **two-app architecture** (backend + frontend).
+This project uses a **two-app architecture**: the backend on Google Cloud Run and the frontend on Vercel.
 
-### Backend (FastAPI) → Railway
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template)
-See: [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md)
+### Backend (FastAPI) → Google Cloud Run
+- The container image is built from `Dockerfile` (Python 3.11). The app listens on `$PORT`, which Cloud Run sets automatically.
+- To redeploy from the repo root, keep the same service name and region so the URL doesn't change:
 
-### Frontend (React + Vite) → Vercel / Netlify / Railway
-See: [FRONTEND_DEPLOYMENT.md](FRONTEND_DEPLOYMENT.md)
+```bash
+gcloud run deploy email-generator-app --source . --region asia-south1
+```
 
-**Recommended Stack (Current):**
-- 🔧 Backend: Railway (FastAPI + Docker)
-- 🎨 Frontend: Vercel (Vite React build output)
-- 💾 Database: PostgreSQL on Railway
-- 🧠 LLM: Google Gemini Flash (`gemini-2.0-flash`)
-- 📂 Fallback Storage: Local JSON (`data/`)
+- Configuration comes from environment variables on the Cloud Run service (see [Environment Variables](#-environment-variables-key)). Keep API keys and OAuth secrets in Secret Manager rather than plain env vars:
 
-## 🏁 Quick Start
+```bash
+gcloud run services update email-generator-app --region asia-south1 \
+  --update-secrets GEMINI_API_KEY=<secret-name>:latest
+```
+
+- To connect the database, set `DATABASE_URL` on the service. Existing JSON drafts are copied into PostgreSQL the first time a user's history is loaded, and `scripts/migrate_json_to_postgres.py` can migrate in bulk.
+- Verify a deploy:
+
+```bash
+curl https://email-generator-app-956218235973.asia-south1.run.app/health
+# {"status":"ok","app_name":"AI Email Assistant","version":"1.0.0"}
+```
+
+- The interactive API docs (`/docs`, `/redoc`) are only served when `DEBUG=true`, so they're off in production.
+
+### Frontend (React + Vite) → Vercel
+- Vercel deploys from the separate `email-generator-app-frontend` repository. The `frontend/` folder here is pushed there with `sync-frontend.ps1`; see [FRONTEND_SYNC_GUIDE.md](FRONTEND_SYNC_GUIDE.md).
+- `VITE_API_BASE_URL` must be the Cloud Run URL. It's set in the Vercel project's environment variables, which take priority over `.env` files at build time. `frontend/.env.production` in this repo still holds the old Railway URL; the live site uses the Vercel setting.
+- CORS: the backend allows the Vercel production domain by default, plus any `*.vercel.app` preview domain and Chrome/Firefox extension origins. Add more with `CORS_ORIGINS` or `FRONTEND_URL`.
+
+### Browser Extension (Gmail / Outlook)
+- Source is in `browser-extension/`; it calls `/api/extension/generate`, `/api/extension/usage` and `/api/extension/health`.
+- Set `API_BASE_URL` in `browser-extension/background/service-worker.js` to `https://email-generator-app-956218235973.asia-south1.run.app/api` for production, or `http://localhost:8000/api` for local work. See [EXTENSION_QUICK_REFERENCE.md](EXTENSION_QUICK_REFERENCE.md).
+
+## 🏁 Quick Start (Local)
 
 1. Create and activate a virtual environment (Windows PowerShell):
 
@@ -63,27 +95,40 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
-3. Copy `.env.example` to `.env` and add your API keys & `DATABASE_URL`.
+3. Copy `.env.example` to `.env` and set `GEMINI_API_KEY`. `DATABASE_URL` is optional; without it the app uses JSON files under `data/`.
 
-4. Run the FastAPI backend locally (after setting `GEMINI_API_KEY` in `.env`):
+4. Run the backend on port 8000, which is what the frontend expects locally (`frontend/.env.development`):
 
 ```powershell
-uvicorn src.api.main:app --reload --port 8001
+uvicorn src.api.main:app --reload --port 8000
 ```
 
-### Backend API (FastAPI)
-Exposes a workflow endpoint (`POST /email/generate`) and history/profile endpoints.
+5. Run the frontend in a second terminal (opens on http://localhost:5173):
 
-Run locally:
 ```powershell
-uvicorn src.api.main:app --reload --port 8001
+cd frontend
+npm install
+npm run dev
 ```
-Default CORS allows `localhost:5173`, `localhost:3000`.
 
-### React Frontend
-- Vite-based React app under `frontend/` calls `http://localhost:8001/email/generate`.
-- OAuth flows (Google) route via `/auth/callback` (see deployment guide).
-- Developer Mode toggle surfaces per-agent trace (see below).
+## 🔌 API Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/health` | Health check |
+| GET | `/` | Service info |
+| POST | `/api/email/generate` | Generate an email (body: `prompt`, plus optional `user_id`, `tone`, `recipient`, `recipient_email`, `length_preference`, `developer_mode`, `use_stub`, `save_to_history`, `reset_context`) |
+| POST | `/api/email/regenerate` | Regenerate a draft |
+| GET, PUT | `/api/users/{user_id}/profile` | Read or update a user profile |
+| GET | `/api/users/{user_id}/history` | Draft history |
+| POST | `/api/users/{user_id}/history/learn` | Learn preferences from an edited draft |
+| GET | `/api/auth/providers` | Enabled OAuth providers (production: Google, GitHub) |
+| POST | `/api/auth/start`, `/api/auth/exchange`, `/api/auth/logout` | OAuth sign-in flow |
+| GET | `/api/auth/callback`, `/api/auth/callback/{provider}` | OAuth callbacks |
+| POST, GET | `/api/extension/generate`, `/api/extension/usage`, `/api/extension/health` | Browser extension |
+| GET, POST | `/api/mcp` | MCP JSON-RPC endpoint |
+| GET | `/api/mcp/tools` | List MCP tools |
+| GET | `/api/debug/profile/{user_id}` | Only when `DEBUG=true` |
 
 ### Developer Mode (Per-Step Trace)
 Returns ordered snapshots after each agent with keys: `parsed_data`, `intent`, `draft`, `personalized_draft`, `final_draft`, `metadata`.
@@ -97,23 +142,27 @@ for step in result["developer_trace"]:
 ```
 REST:
 ```bash
-curl -s -X POST http://localhost:8001/email/generate \
+curl -s -X POST http://localhost:8000/api/email/generate \
    -H "Content-Type: application/json" \
-   -d '{"user_input": "Follow up about proposal", "developer_mode": true}' | jq
+   -d '{"prompt": "Follow up about proposal", "developer_mode": true}' | jq
 ```
 
 ## 📁 Repository Layout
 
 | Path | Purpose |
 |------|---------|
-| `src/` | Production backend source (FastAPI, agents, workflow) |
-| `tests/` | Pytest test suite (unit & integration) |
-| `scripts/diagnostics/` | Local environment & data inspection scripts |
-| `scripts/migration/` | Data migration helpers (future) |
-| `data/` | Local JSON fallback storage & templates |
-| `frontend/` | React application (not included in this repository if external) |
-| `Dockerfile`, `railway.json`, `.dockerignore`, `start.py` | Deployment artefacts for Railway |
-| `README.md`, `RAILWAY_DEPLOYMENT.md` | Documentation |
+| `src/` | Backend source (FastAPI app, agents, workflow, auth, integrations) |
+| `tests/` | Pytest test suite |
+| `frontend/` | React (Vite) app; mirrored to `email-generator-app-frontend` for Vercel |
+| `browser-extension/` | Gmail/Outlook extension |
+| `scripts/` | Database setup and migration (`setup_database.py`, `migrate_json_to_postgres.py`, `db_inspect.py`) and `diagnostics/` |
+| `data/` | Local JSON fallback storage |
+| `docs/` | Additional notes (LangSmith analysis, demo video, enhancements) |
+| `examples/` | Usage examples |
+| `Dockerfile`, `.dockerignore` | Container image used by Cloud Run |
+| `start.py` | Alternative local launcher (not used by the Dockerfile) |
+| `railway.json`, `.github/workflows/railway-deploy.yml` | Legacy Railway config |
+| Root `*.md` guides and `test_*.py` scripts | Older setup guides and standalone check scripts |
 
 To run a diagnostic script (local only):
 ```bash
@@ -126,8 +175,11 @@ These scripts must NOT be invoked from production containers; they are excluded 
 ## 🧪 Testing
 Run the test suite:
 ```powershell
-pytest -q
+pytest tests -q --ignore=tests/test_generate_with_tracing.py --continue-on-collection-errors
 ```
+`tests/test_generate_with_tracing.py` is a standalone script that exits on import, so it's skipped. Three test files currently fail to load (`test_agents_structure.py`, `test_langsmith_config.py`, `test_refinement_agent.py`); the flag lets the rest run.
+
+CI (`.github/workflows/railway-deploy.yml`) only runs on pushes to `main` and `dev_fastapi` and on pull requests to `main`, so it doesn't run for `master`, the default branch. It also ignores test failures (`|| true`).
 
 ## 📐 Length Targeting
 - `length_preference` passed from UI becomes `effective_length` (minimum 25 if <10 requested).
@@ -135,7 +187,7 @@ pytest -q
 - Metadata records: `requested_length_preference`, `effective_length_preference` (if adjusted), `original_word_count`, `final_word_count`, `length_trimmed`.
 
 ## 🔒 Persistence Strategy
-Primary: PostgreSQL (Railway). Fallback: JSON under `data/` if DB unavailable or during quota fallback.
+Primary: PostgreSQL when `DATABASE_URL` is set. Fallback: JSON under `data/` when it isn't (the current production setup) or when the database is unavailable.
 Draft history normalized to always expose both `content` and `draft` keys for backward compatibility.
 
 ## 🧠 Agents Overview
@@ -144,20 +196,27 @@ Draft history normalized to always expose both `content` and `draft` keys for ba
 3. DraftWriter – generate initial draft (no placeholders).
 4. ToneStylist – apply tone guidelines without altering greeting.
 5. Personalization – inject profile; safeguard recipient/greeting.
-6. Review – polish, ensure quality & length alignment.
-7. Refinement – ordered cleanup (dedupe, placeholders removal, grammar, subtle corrections) via prompt.
-8. Router – finalize routing / next-step metadata.
+6. Review – check tone, clarity, grammar, completeness and length (±5%), and return an improved draft without changing the greeting or recipient. Refinement used to be a separate agent and is now part of this step; the old `REFINEMENT_AGENT_PROMPT` in `src/utils/prompts.py` is no longer used.
+7. Router – check the final state and decide continue, retry or fallback.
 
 ## 🔧 Environment Variables (Key)
 | Variable | Purpose |
 |----------|---------|
-| `GEMINI_API_KEY` | Google Generative AI access |
-| `DATABASE_URL` | PostgreSQL connection string (`postgresql://user:pass@host:port/db`) |
-| `JWT_SECRET_KEY` | Auth token signing (auto-generate if absent) |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | OAuth login |
+| `GEMINI_API_KEY` | Google Generative AI access (required) |
+| `GEMINI_MODEL` | Gemini model name (default `gemini-2.0-flash-lite`) |
+| `DATABASE_URL` | PostgreSQL connection string (`postgresql://user:pass@host:port/db`); unset means JSON fallback |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | Google OAuth. The redirect URI must match what's registered in Google Cloud Console (the default points at localhost). |
+| `ENABLE_GITHUB_OAUTH`, `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` / `GITHUB_REDIRECT_URI` | GitHub OAuth (enabled in production) |
+| `CORS_ORIGINS`, `FRONTEND_URL` | Extra allowed frontend origins |
+| `DEBUG` | Enables `/docs`, `/redoc` and `/api/debug/*` (keep `false` in production) |
+| `LOG_LEVEL` | Logging level (default `INFO`) |
 | `DONOTUSEGEMINI` or `NO_GEMINI` | Force stub (local) mode when truthy |
+| `ENABLE_LANGSMITH`, `LANGSMITH_API_KEY`, `LANGCHAIN_PROJECT` | Optional LangSmith tracing |
+| `ENABLE_COST_TRACKING`, `ENABLE_RATE_LIMITER` | Optional LLM cost tracking and client-side rate limiting |
 
-Optional (disabled by default in current deployment): `REDIS_URL`, Chroma config vars.
+`JWT_SECRET_KEY` appears in the config and `.env` templates but isn't used by the code; sessions use random tokens.
+
+Optional (not used in production): `REDIS_URL`, ChromaDB and MongoDB settings. See `.env.example` for the full list.
 
 ## 🧩 Optional / Planned Integrations
 - Redis caching layer (rate limiting, draft cache)
@@ -172,11 +231,11 @@ We expose a lightweight MCP-compatible JSON-RPC endpoint over HTTP to make tools
 - Tools listing (convenience HTTP): `GET /api/mcp/tools`
 - Server name: `email-generator-mcp-server`
 
-Quick examples (PowerShell):
+The examples below use the local server; replace `http://localhost:8000` with the Cloud Run URL to call production.
 
 Initialize
 ```powershell
-curl -s -X POST http://localhost:8001/api/mcp `
+curl -s -X POST http://localhost:8000/api/mcp `
       -H "Content-Type: application/json" `
       -d '{
             "jsonrpc": "2.0",
@@ -188,7 +247,7 @@ curl -s -X POST http://localhost:8001/api/mcp `
 
 List tools
 ```powershell
-curl -s -X POST http://localhost:8001/api/mcp `
+curl -s -X POST http://localhost:8000/api/mcp `
       -H "Content-Type: application/json" `
       -d '{
             "jsonrpc": "2.0",
@@ -199,7 +258,7 @@ curl -s -X POST http://localhost:8001/api/mcp `
 
 Call `generate_email`
 ```powershell
-curl -s -X POST http://localhost:8001/api/mcp `
+curl -s -X POST http://localhost:8000/api/mcp `
       -H "Content-Type: application/json" `
       -d '{
             "jsonrpc": "2.0",
@@ -225,14 +284,10 @@ Notes:
 If Gemini quota error detected (429 / ResourceExhausted), system switches to stub state preserving workflow continuity; metadata marks source as `stub` and records fallback.
 
 ## 🛡️ Safety & Output Integrity
-- Greeting and recipient name preserved exactly after initial generation.
-- No placeholder tokens ever emitted post-personalization.
-- Refinement prompt forbids fact invention, uncontrolled shortening, or new promises.
-
-## 🚢 Deployment (Summary)
-See detailed guides in `RAILWAY_DEPLOYMENT.md` and `FRONTEND_DEPLOYMENT.md`.
-Docker image builds from `Dockerfile`; environment variables injected at deploy time. Ensure `DATABASE_URL` and `GEMINI_API_KEY` are set before first request.
+- The ToneStylist, Personalization and Review prompts instruct the model to keep the greeting line and recipient name exactly as drafted.
+- The Personalization prompt forbids placeholder text such as `[Your Name]` and omits empty profile fields.
+- Review and Personalization keep the email within ±5% of the target length.
 
 ---
 
-Created from original `email_assistant_guide_v2.md` with live adjustments to reflect current production stack (PostgreSQL + Gemini; Redis/Chroma disabled). Suggestions & contributions welcome.
+Created from the original `email_assistant_guide_v2.md` and updated to match the current production setup (Cloud Run + Vercel + Gemini; database not yet connected; Redis/Chroma unused). Suggestions & contributions welcome.
