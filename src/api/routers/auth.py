@@ -13,6 +13,9 @@ from ..schemas import (
 	OAuthStartResponse,
 	OAuthExchangeRequest,
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -124,11 +127,11 @@ def _complete_oauth_common(provider: str, code: str, state: str) -> OAuthCallbac
 				"learned_preferences": {},
 			}
 			try:
-				print(f"[OAuth] Creating profile for user {user_id} with name: {initial_profile['user_name']}")
+				logger.info(f"[OAuth] Creating profile for user {user_id} with name: {initial_profile['user_name']}")
 				_memory_manager.save_profile(user_id, initial_profile)
-				print(f"[OAuth] Profile created successfully for {user_id}")
+				logger.info(f"[OAuth] Profile created successfully for {user_id}")
 			except Exception as e:
-				print(f"[OAuth] ERROR: Failed to auto-create profile for {user_id}: {e}")
+				logger.exception(f"[OAuth] ERROR: Failed to auto-create profile for {user_id}: {e}")
 				import traceback
 				traceback.print_exc()
 
@@ -220,11 +223,11 @@ async def exchange_oauth(request: OAuthExchangeRequest) -> OAuthCallbackResponse
 						"preferences": {},
 						"learned_preferences": {},
 					}
-					print(f"[OAuth/Exchange] Creating profile for user {user_id} with name: {initial_profile['user_name']}")
+					logger.info(f"[OAuth/Exchange] Creating profile for user {user_id} with name: {initial_profile['user_name']}")
 					_memory_manager.save_profile(user_id, initial_profile)
-					print(f"[OAuth/Exchange] Profile created successfully for {user_id}")
+					logger.info(f"[OAuth/Exchange] Profile created successfully for {user_id}")
 			except Exception as e:
-				print(f"[OAuth/Exchange] ERROR: Failed to auto-create profile for {user_id}: {e}")
+				logger.exception(f"[OAuth/Exchange] ERROR: Failed to auto-create profile for {user_id}: {e}")
 				import traceback
 				traceback.print_exc()
 				# Continue even if profile creation fails
@@ -253,7 +256,7 @@ async def exchange_oauth(request: OAuthExchangeRequest) -> OAuthCallbackResponse
 	except HTTPException:
 		raise
 	except Exception as e:
-		print(f"Error in exchange_oauth: {type(e).__name__}: {e}")
+		logger.exception(f"Error in exchange_oauth: {type(e).__name__}: {e}")
 		raise HTTPException(status_code=500, detail=f"OAuth exchange failed: {str(e)}")
 
 

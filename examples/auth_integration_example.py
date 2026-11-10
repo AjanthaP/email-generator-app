@@ -18,7 +18,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.auth.streamlit_auth import StreamlitAuth
-from src.workflow.langgraph_flow import execute_workflow
+from src.workflow.pipeline import execute_workflow
 
 # Page config
 st.set_page_config(

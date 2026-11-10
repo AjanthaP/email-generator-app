@@ -1,3 +1,10 @@
+"""Email generation pipeline.
+
+Runs the agents in a fixed sequential order (parse -> intent -> draft -> tone
+-> personalization -> review), merging each agent's updates into a shared
+state dict. This is a plain sequential loop, not a LangGraph StateGraph.
+On Gemini quota errors it falls back to a local stub generator.
+"""
 from typing import TypedDict, Any, Dict, Callable, Optional
 import os
 import sys
@@ -14,6 +21,9 @@ from src.agents.review import ReviewAgent
 from src.agents.router import RouterAgent
 from src.utils.llm_wrapper import make_wrapper, LLMWrapper
 from src.utils.observability import activate_langsmith
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class EmailState(TypedDict, total=False):
@@ -229,7 +239,7 @@ def execute_workflow(
         state["length_preference"] = effective_length
     
     # Debug log
-    print(f"[Workflow] Executing with user_id: {user_id}, tone: {tone}")
+    logger.info(f"[Workflow] Executing with user_id: {user_id}, tone: {tone}")
 
     # Attach metadata indicating we're attempting to use the LLM by default.
     # If a quota fallback happens later, this will be updated to indicate stub.
@@ -258,17 +268,17 @@ def execute_workflow(
     for node_name in order:
         agent = agents.get(node_name)
         if agent is None:
-            print(f"[Workflow] Warning: Agent '{node_name}' not found, skipping")
+            logger.warning(f"[Workflow] Warning: Agent '{node_name}' not found, skipping")
             continue
 
-        print(f"[Workflow] Running agent: {node_name}")
+        logger.info(f"[Workflow] Running agent: {node_name}")
         try:
             updates = agent(state) or {}
             # Merge updates into state
             for k, v in updates.items():
                 state[k] = v  # type: ignore[index]
             
-            print(f"[Workflow] Agent '{node_name}' completed successfully")
+            logger.info(f"[Workflow] Agent '{node_name}' completed successfully")
 
             if developer_mode:
                 # Capture a snapshot after this agent runs
@@ -285,7 +295,7 @@ def execute_workflow(
             # If it's a Gemini quota/429 error, switch to the stubbed generator
             # immediately and return a usable state rather than continuing with
             # missing/partial fields.
-            print(f"[Workflow] Error in agent '{node_name}': {e}")
+            logger.exception(f"[Workflow] Error in agent '{node_name}': {e}")
             state.setdefault("review_notes", {})
             state["review_notes"][node_name] = {"error": str(e)}
 

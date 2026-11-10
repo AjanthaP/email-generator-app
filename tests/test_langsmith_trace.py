@@ -4,7 +4,7 @@ Run this after setting ENABLE_LANGSMITH=true in .env
 Then check your LangSmith dashboard at https://smith.langchain.com/
 """
 
-from src.workflow.langgraph_flow import generate_email
+from src.workflow.pipeline import generate_email
 
 print("=" * 60)
 print("Testing LangSmith Tracing")

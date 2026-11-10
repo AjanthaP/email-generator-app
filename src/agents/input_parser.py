@@ -15,6 +15,9 @@ from pydantic import BaseModel, Field, field_validator, ValidationError
 import json
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
 from src.utils.llm_response import extract_response_text
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ParsedInput(BaseModel):
@@ -144,7 +147,7 @@ class InputParserAgent:
 
         except (json.JSONDecodeError, ValidationError) as e:
             # Log as info (not fatal) and return fallback structure
-            print(f"[InputParserAgent] Parse validation error, using fallback: {e}")
+            logger.warning(f"[InputParserAgent] Parse validation error, using fallback: {e}")
             return self._fallback_parse(user_input)
     
     def _fallback_parse(self, user_input: str) -> ParsedInput:

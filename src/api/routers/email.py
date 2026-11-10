@@ -6,7 +6,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from src.memory.memory_manager import MemoryManager
 from src.utils.metrics import metrics
-from src.workflow.langgraph_flow import execute_workflow, _init_llm
+from src.workflow.pipeline import execute_workflow, _init_llm
 from src.agents.review import ReviewAgent
 from src.agents.tone_stylist import ToneStylistAgent
 from src.agents.personalization import PersonalizationAgent

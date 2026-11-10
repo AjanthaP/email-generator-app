@@ -4,7 +4,7 @@ This guide highlights the key files and the end-to-end flow so you can explain h
 
 ## Core Flow (Backend)
 - `src/utils/config.py`: Central settings (Gemini model/key, Chroma toggles, DB URLs, CORS). All agents read from here via `settings`.
-- `src/workflow/langgraph_flow.py`: Orchestrates the main generation pipeline: InputParser → IntentDetector → DraftWriter → ToneStylist → Personalization → Review. Returns a `state` containing `final_draft`, `metadata`, and optional `developer_trace`.
+- `src/workflow/pipeline.py`: Orchestrates the main generation pipeline: InputParser → IntentDetector → DraftWriter → ToneStylist → Personalization → Review. Returns a `state` containing `final_draft`, `metadata`, and optional `developer_trace`.
 - `src/api/routers/email.py`: REST endpoints.
   - `POST /api/email/generate`: Calls `execute_workflow(...)`, saves draft (if requested), returns `EmailGenerateResponse` with `draft`, `metadata`, `metrics`.
   - `POST /api/email/regenerate`: Adaptive re-polish based on diff ratio.

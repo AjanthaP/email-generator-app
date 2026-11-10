@@ -25,6 +25,9 @@ from src.utils.prompts import (
 )
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
 from src.utils.llm_response import extract_response_text
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class DraftWriterAgent:
@@ -130,7 +133,7 @@ class DraftWriterAgent:
             return draft
 
         except Exception as e:
-            print(f"Error writing draft: {e}")
+            logger.exception(f"Error writing draft: {e}")
             return self._fallback_draft(parsed_data, intent)
     
     def _fallback_draft(self, parsed_data: Dict, intent: str = "") -> str:

@@ -1,6 +1,6 @@
 """FastAPI backend for the AI Email Assistant.
 
-This service exposes REST endpoints that wrap the LangGraph workflow, making it
+This service exposes REST endpoints that wrap the agent pipeline, making it
 accessible to external clients (e.g., a React front-end).
 """
 import os
@@ -16,6 +16,12 @@ from .routers import auth, email, users, debug, extension
 from .routers import mcp as mcp_router
 from .schemas import HealthCheckResponse
 
+# Send application logs (src.*) to stdout. Without this, logger.info calls from
+# agents and the pipeline are dropped because only uvicorn's loggers have handlers.
+logging.basicConfig(
+    level=getattr(logging, str(settings.log_level).upper(), logging.INFO),
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 
@@ -82,7 +88,7 @@ for var in [
 # Note: In production, you may want to restrict to specific extension IDs
 # Chrome: chrome-extension://<extension-id>
 # Firefox: moz-extension://<extension-id>
-print(f"[startup] CORS allow_origins resolved: {origins}")
+logger.info(f"[startup] CORS allow_origins resolved: {origins}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -125,9 +131,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
     """Catch-all exception handler to ensure CORS headers on all errors."""
-    print(f"Unhandled exception: {type(exc).__name__}: {exc}")
-    import traceback
-    traceback.print_exc()
+    logger.exception(f"Unhandled exception: {type(exc).__name__}: {exc}")
     
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
