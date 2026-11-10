@@ -294,7 +294,7 @@ Update `src/ui/streamlit_app.py`:
 ```python
 import streamlit as st
 from src.auth.streamlit_auth import StreamlitAuth
-from src.workflow.langgraph_flow import execute_workflow
+from src.workflow.pipeline import execute_workflow
 
 # Initialize authentication
 auth_helper = StreamlitAuth()

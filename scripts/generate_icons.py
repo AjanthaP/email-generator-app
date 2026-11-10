@@ -3,7 +3,8 @@ from PIL import Image, ImageDraw, ImageFont
 import os
 
 # Create icons directory if it doesn't exist
-icons_dir = "browser-extension/icons"
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+icons_dir = os.path.join(REPO_ROOT, "browser-extension", "icons")
 os.makedirs(icons_dir, exist_ok=True)
 
 # Define sizes

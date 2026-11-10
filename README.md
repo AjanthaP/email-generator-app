@@ -1,6 +1,6 @@
 # AI Email Assistant
 
-AI-powered email generation assistant built with FastAPI, LangGraph, and a React (Vite) frontend. It produces professional, personalized emails with controllable tone, length targeting, and developer trace visibility.
+AI-powered email generation assistant built with FastAPI, a sequential multi-agent pipeline (LangChain + Gemini), and a React (Vite) frontend. It produces professional, personalized emails with controllable tone, length targeting, and developer trace visibility.
 
 > CURRENT STATUS (Nov 2025): Active components are FastAPI + Gemini (Google Generative AI) + PostgreSQL (Railway) + JSON local fallback storage + Agent workflow. Redis, ChromaDB, and MongoDB are NOT currently used in production; they remain optional feature flags for future expansion.
 
@@ -18,7 +18,7 @@ AI-powered email generation assistant built with FastAPI, LangGraph, and a React
 ```
 React Frontend (Vite) ── REST calls ──▶ FastAPI Backend
                                          │
-                                         ├─ LangGraph-inspired Sequential Agents
+                                         ├─ Sequential agent pipeline (src/workflow/pipeline.py)
                                          │    (InputParser → Intent → DraftWriter → ToneStylist → Personalization → Review → Refinement → Router)
                                          │
                                          ├─ Google Gemini (LLM) via langchain-google-genai
@@ -36,10 +36,10 @@ This project uses a **two-app architecture** (backend + frontend).
 
 ### Backend (FastAPI) → Railway
 [![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template)
-See: [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md)
+See: [docs/guides/RAILWAY_DEPLOYMENT.md](docs/guides/RAILWAY_DEPLOYMENT.md)
 
 ### Frontend (React + Vite) → Vercel / Netlify / Railway
-See: [FRONTEND_DEPLOYMENT.md](FRONTEND_DEPLOYMENT.md)
+See: [frontend/README.md](frontend/README.md)
 
 **Recommended Stack (Current):**
 - 🔧 Backend: Railway (FastAPI + Docker)
@@ -90,7 +90,7 @@ Returns ordered snapshots after each agent with keys: `parsed_data`, `intent`, `
 
 Python:
 ```python
-from src.workflow.langgraph_flow import generate_email
+from src.workflow.pipeline import generate_email
 result = generate_email("Follow up about proposal", developer_mode=True)
 for step in result["developer_trace"]:
       print(step["agent"], step["snapshot"].keys())
@@ -108,12 +108,15 @@ curl -s -X POST http://localhost:8001/email/generate \
 |------|---------|
 | `src/` | Production backend source (FastAPI, agents, workflow) |
 | `tests/` | Pytest test suite (unit & integration) |
+| `scripts/` | Developer utilities (`setup_auth.py`, `generate_icons.py`, PowerShell helpers) |
 | `scripts/diagnostics/` | Local environment & data inspection scripts |
+| `scripts/legacy/` | Older standalone check scripts kept for reference (not run by CI) |
 | `scripts/migration/` | Data migration helpers (future) |
-| `data/` | Local JSON fallback storage & templates |
+| `data/` | Local JSON fallback storage (git-ignored; created at runtime) |
 | `frontend/` | React application (not included in this repository if external) |
 | `Dockerfile`, `railway.json`, `.dockerignore`, `start.py` | Deployment artefacts for Railway |
-| `README.md`, `RAILWAY_DEPLOYMENT.md` | Documentation |
+| `docs/`, `docs/guides/`, `docs/diagrams/` | Documentation, setup guides and Mermaid diagrams |
+| `TODO.md` | Roadmap: AI-enabled log triage agent |
 
 To run a diagnostic script (local only):
 ```bash
@@ -230,9 +233,9 @@ If Gemini quota error detected (429 / ResourceExhausted), system switches to stu
 - Refinement prompt forbids fact invention, uncontrolled shortening, or new promises.
 
 ## 🚢 Deployment (Summary)
-See detailed guides in `RAILWAY_DEPLOYMENT.md` and `FRONTEND_DEPLOYMENT.md`.
+See detailed guides in `docs/guides/RAILWAY_DEPLOYMENT.md` and `frontend/README.md`.
 Docker image builds from `Dockerfile`; environment variables injected at deploy time. Ensure `DATABASE_URL` and `GEMINI_API_KEY` are set before first request.
 
 ---
 
-Created from original `email_assistant_guide_v2.md` with live adjustments to reflect current production stack (PostgreSQL + Gemini; Redis/Chroma disabled). Suggestions & contributions welcome.
+Created from original `docs/guides/email_assistant_guide_v2.md` with live adjustments to reflect current production stack (PostgreSQL + Gemini; Redis/Chroma disabled). Suggestions & contributions welcome.

@@ -107,7 +107,7 @@ Developer mode is **now fully implemented** in both backend and API. It provides
 ### Python API Usage
 
 ```python
-from src.workflow.langgraph_flow import generate_email
+from src.workflow.pipeline import generate_email
 
 result = generate_email(
     user_input="Write a follow-up email to John...",
@@ -175,7 +175,7 @@ async def generate_email(payload: EmailGenerateRequest):
     )
 ```
 
-### Workflow Implementation (langgraph_flow.py)
+### Workflow Implementation (pipeline.py)
 ```python
 def execute_workflow(
     user_input: str,
@@ -499,7 +499,7 @@ Expected response includes `developer_trace` array with 8 steps (one for each ag
 
 ## Summary
 
-✅ **Backend:** Fully implemented in `langgraph_flow.py`  
+✅ **Backend:** Fully implemented in `pipeline.py`  
 ✅ **API Schema:** `developer_mode` field added to request/response  
 ✅ **API Endpoint:** Passes `developer_mode` to workflow and returns trace  
 ✅ **Response:** Includes `developer_trace` when enabled

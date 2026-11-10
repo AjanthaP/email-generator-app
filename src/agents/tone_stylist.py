@@ -12,6 +12,9 @@ from langchain_core.prompts import ChatPromptTemplate
 from src.utils.prompts import TONE_STYLIST_PROMPT
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
 from src.utils.llm_response import extract_response_text
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ToneStylistAgent:
@@ -116,7 +119,7 @@ class ToneStylistAgent:
             return extract_response_text(response)
             
         except Exception as e:
-            print(f"Error adjusting tone: {e}")
+            logger.exception(f"Error adjusting tone: {e}")
             # Return original draft if tone adjustment fails
             return draft
     

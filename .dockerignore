@@ -26,8 +26,7 @@ wheels/
 
 # Environment
 .env
-.env.local
-.env.*.local
+.env.*
 
 # IDEs
 .vscode/
@@ -49,12 +48,9 @@ frontend/node_modules/
 frontend/dist/
 frontend/.next/
 
-# Data (don't include in image)
-data/users.json
-data/sessions.json
-data/profiles/
-data/drafts/
-data/metrics/
+# Data (don't include in image; folders are created at runtime)
+data/
+src/memory/*.json
 
 # Logs
 *.log

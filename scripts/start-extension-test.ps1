@@ -1,6 +1,9 @@
 # Quick Start Script for Extension Testing
 # This script starts the backend server and provides helpful links
 
+# Run from the repo root (this script lives in scripts/)
+Set-Location (Split-Path -Parent $PSScriptRoot)
+
 Write-Host "`n========================================" -ForegroundColor Cyan
 Write-Host "  AI Email Assistant - Extension Test" -ForegroundColor Cyan
 Write-Host "========================================`n" -ForegroundColor Cyan

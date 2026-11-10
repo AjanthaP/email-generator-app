@@ -7,7 +7,7 @@ from datetime import datetime
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, project_root)
 
-from src.workflow.langgraph_flow import generate_email
+from src.workflow.pipeline import generate_email
 from src.utils.observability import activate_langsmith
 
 print("=" * 70)

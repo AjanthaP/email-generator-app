@@ -14,6 +14,9 @@ from enum import Enum
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
 from src.utils.llm_response import extract_response_text
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class EmailIntent(str, Enum):
@@ -121,7 +124,7 @@ class IntentDetectorAgent:
             # Unknown or unsupported requests should not be forced into outreach.
             return EmailIntent.GENERIC.value
         except Exception as e:
-            print(f"Error detecting intent: {e}")
+            logger.exception(f"Error detecting intent: {e}")
             return EmailIntent.GENERIC.value
 
     @staticmethod

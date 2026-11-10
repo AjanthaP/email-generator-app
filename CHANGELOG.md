@@ -4,6 +4,29 @@ All notable changes to the Email Generator App project.
 
 ---
 
+## [Repo cleanup] - November 11, 2026
+
+### Security
+- Removed `.env.minimal.railway`, which contained a real Gemini API key and JWT secret. **The values remain in git history: rotate both.**
+- Stopped tracking local user data (`data/**/*.json`, `src/memory/*.json`), including seeded users with a known admin password.
+- `.gitignore` now blocks all root `.env.*` files except `*.example` templates; `.dockerignore` now excludes `data/` (the old paths didn't match the real file locations).
+
+### Structure
+- Moved 15 guides into `docs/guides/` and the Mermaid diagrams into `docs/diagrams/`.
+- Moved utility scripts into `scripts/`; older root copies that differ from `scripts/diagnostics/` and `tests/` were moved to `scripts/legacy/` (kept, not deleted).
+- Renamed `src/workflow/langgraph_flow.py` → `src/workflow/pipeline.py` (it is a sequential agent loop, not a LangGraph graph) and removed the unused `langgraph` dependency.
+- Converted `requirements.txt` from UTF-16 to UTF-8.
+- Removed the committed `frontend/.vite/` build cache; renamed `.env.railway` → `.env.railway.example`.
+
+### Logging
+- Replaced `print()` with module loggers in the pipeline, agents and API routers.
+- Added `logging.basicConfig` in `src/api/main.py`, so application `logger.info` output is now actually emitted (previously only uvicorn's loggers had handlers).
+
+### Roadmap
+- Added `TODO.md`: 4-day plan for an AI-enabled log triage agent.
+
+---
+
 ## [Recent Updates] - November 15, 2025
 
 ### Developer Mode - API Integration Fix
