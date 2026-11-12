@@ -8,7 +8,7 @@ AI-powered email generation assistant: a FastAPI backend that runs a sequential 
 > - **LLM:** Google Gemini. The default model is `gemini-2.0-flash-lite`; override it with `GEMINI_MODEL`.
 > - **Database:** not connected in production yet. `DATABASE_URL` is not set on the Cloud Run service, so drafts, profiles and sessions use the JSON fallback inside the container. Cloud Run storage is temporary, so this data is lost whenever an instance restarts or a new revision is deployed. The PostgreSQL database from the earlier Railway setup still exists but is not wired to Cloud Run.
 > - **Not used in production:** Redis, ChromaDB and MongoDB. They remain optional feature flags.
-> - **Railway hosting is retired.** `railway.json`, `.github/workflows/railway-deploy.yml` and the Railway guides are leftovers from that setup.
+> - **Railway hosting is retired.** `railway.json`, `.github/workflows/railway-deploy.yml` and the Railway guides in `docs/guides/` are leftovers from that setup.
 
 ## ✅ Core Features
 - Sequential multi-agent pipeline (parse → intent → draft → tone styling → personalization → review → routing)
@@ -27,7 +27,7 @@ AI-powered email generation assistant: a FastAPI backend that runs a sequential 
 React frontend (Vercel) ──┐
 Browser extension ────────┼── HTTPS ──▶ FastAPI backend (Google Cloud Run, asia-south1)
 MCP clients ──────────────┘               │
-                                          ├─ Sequential agent pipeline (src/workflow/langgraph_flow.py)
+                                          ├─ Sequential agent pipeline (src/workflow/pipeline.py)
                                           │    InputParser → IntentDetector → DraftWriter → ToneStylist
                                           │    → Personalization → Review → Router
                                           │
@@ -38,7 +38,7 @@ MCP clients ──────────────┘               │
                                           └─ JSON fallback under data/ (used in production today; temporary on Cloud Run)
 ```
 
-Despite its file name, `langgraph_flow.py` is a plain sequential loop over the agents, not a LangGraph graph.
+`pipeline.py` (formerly `langgraph_flow.py`) is a plain sequential loop over the agents, not a LangGraph graph.
 
 Optional, currently unused: Redis cache, ChromaDB vector store, MongoDB alternative persistence.
 
@@ -72,13 +72,13 @@ curl https://email-generator-app-956218235973.asia-south1.run.app/health
 - The interactive API docs (`/docs`, `/redoc`) are only served when `DEBUG=true`, so they're off in production.
 
 ### Frontend (React + Vite) → Vercel
-- Vercel deploys from the separate `email-generator-app-frontend` repository. The `frontend/` folder here is pushed there with `sync-frontend.ps1`; see [FRONTEND_SYNC_GUIDE.md](FRONTEND_SYNC_GUIDE.md).
+- Vercel deploys from the separate `email-generator-app-frontend` repository. The `frontend/` folder here is pushed there with `scripts/sync-frontend.ps1`; see [FRONTEND_SYNC_GUIDE.md](docs/guides/FRONTEND_SYNC_GUIDE.md).
 - `VITE_API_BASE_URL` must be the Cloud Run URL. It's set in the Vercel project's environment variables, which take priority over `.env` files at build time. `frontend/.env.production` in this repo still holds the old Railway URL; the live site uses the Vercel setting.
 - CORS: the backend allows the Vercel production domain by default, plus any `*.vercel.app` preview domain and Chrome/Firefox extension origins. Add more with `CORS_ORIGINS` or `FRONTEND_URL`.
 
 ### Browser Extension (Gmail / Outlook)
 - Source is in `browser-extension/`; it calls `/api/extension/generate`, `/api/extension/usage` and `/api/extension/health`.
-- Set `API_BASE_URL` in `browser-extension/background/service-worker.js` to `https://email-generator-app-956218235973.asia-south1.run.app/api` for production, or `http://localhost:8000/api` for local work. See [EXTENSION_QUICK_REFERENCE.md](EXTENSION_QUICK_REFERENCE.md).
+- Set `API_BASE_URL` in `browser-extension/background/service-worker.js` to `https://email-generator-app-956218235973.asia-south1.run.app/api` for production, or `http://localhost:8000/api` for local work. See [EXTENSION_QUICK_REFERENCE.md](docs/guides/EXTENSION_QUICK_REFERENCE.md).
 
 ## 🏁 Quick Start (Local)
 
@@ -155,14 +155,14 @@ curl -s -X POST http://localhost:8000/api/email/generate \
 | `tests/` | Pytest test suite |
 | `frontend/` | React (Vite) app; mirrored to `email-generator-app-frontend` for Vercel |
 | `browser-extension/` | Gmail/Outlook extension |
-| `scripts/` | Database setup and migration (`setup_database.py`, `migrate_json_to_postgres.py`, `db_inspect.py`) and `diagnostics/` |
+| `scripts/` | Database setup and migration (`setup_database.py`, `migrate_json_to_postgres.py`, `db_inspect.py`), `setup_auth.py`, PowerShell helpers (`sync-frontend.ps1`, `start-extension-test.ps1`) and `diagnostics/` |
 | `data/` | Local JSON fallback storage |
-| `docs/` | Additional notes (LangSmith analysis, demo video, enhancements) |
+| `docs/` | Setup and feature guides (`docs/guides/`), Mermaid diagrams (`docs/diagrams/`), and notes (LangSmith analysis, demo video, enhancements) |
 | `examples/` | Usage examples |
 | `Dockerfile`, `.dockerignore` | Container image used by Cloud Run |
 | `start.py` | Alternative local launcher (not used by the Dockerfile) |
 | `railway.json`, `.github/workflows/railway-deploy.yml` | Legacy Railway config |
-| Root `*.md` guides and `test_*.py` scripts | Older setup guides and standalone check scripts |
+| `scripts/legacy/` | Older standalone check scripts, kept for reference |
 
 To run a diagnostic script (local only):
 ```bash
@@ -177,7 +177,7 @@ Run the test suite:
 ```powershell
 pytest tests -q --ignore=tests/test_generate_with_tracing.py --continue-on-collection-errors
 ```
-`tests/test_generate_with_tracing.py` is a standalone script that exits on import, so it's skipped. Three test files currently fail to load (`test_agents_structure.py`, `test_langsmith_config.py`, `test_refinement_agent.py`); the flag lets the rest run.
+`tests/test_generate_with_tracing.py` is a standalone script that calls `sys.exit()` at import, which aborts the whole pytest run, so it's skipped. Three test files currently fail to load (`test_agents_structure.py`, `test_langsmith_config.py`, `test_refinement_agent.py`); the flag lets the rest run.
 
 CI (`.github/workflows/railway-deploy.yml`) only runs on pushes to `main` and `dev_fastapi` and on pull requests to `main`, so it doesn't run for `master`, the default branch. It also ignores test failures (`|| true`).
 
@@ -197,7 +197,7 @@ Draft history normalized to always expose both `content` and `draft` keys for ba
 4. ToneStylist – apply tone guidelines without altering greeting.
 5. Personalization – inject profile; safeguard recipient/greeting.
 6. Review – check tone, clarity, grammar, completeness and length (±5%), and return an improved draft without changing the greeting or recipient. Refinement used to be a separate agent and is now part of this step; the old `REFINEMENT_AGENT_PROMPT` in `src/utils/prompts.py` is no longer used.
-7. Router – check the final state and decide continue, retry or fallback.
+7. Router – check the final state and decide continue, retry or fallback. It uses fixed rules unless `ENABLE_LLM_ROUTER=true`, which asks Gemini instead. The pipeline doesn't act on `retry` yet; a retry loop capped by `ROUTER_MAX_RETRIES` (default 2) is planned in [TODO.md](TODO.md). A `fallback` decision replaces the draft with a basic template.
 
 ## 🔧 Environment Variables (Key)
 | Variable | Purpose |
@@ -210,6 +210,9 @@ Draft history normalized to always expose both `content` and `draft` keys for ba
 | `CORS_ORIGINS`, `FRONTEND_URL` | Extra allowed frontend origins |
 | `DEBUG` | Enables `/docs`, `/redoc` and `/api/debug/*` (keep `false` in production) |
 | `LOG_LEVEL` | Logging level (default `INFO`) |
+| `LOG_FORMAT` | `json` (default; one JSON object per line for Cloud Logging) or `text` |
+| `TELEMETRY_SINKS` | Where telemetry events go: `auto` (default: stdout on Cloud Run, stdout + `data/metrics/events-*.jsonl` elsewhere), `log`, `file`, `log,file`, `none` |
+| `ENABLE_LLM_ROUTER` | Let the Router agent ask Gemini for its decision (default `false`; adds one call per request). See the Router notes under Agents Overview before turning it on. |
 | `DONOTUSEGEMINI` or `NO_GEMINI` | Force stub (local) mode when truthy |
 | `ENABLE_LANGSMITH`, `LANGSMITH_API_KEY`, `LANGCHAIN_PROJECT` | Optional LangSmith tracing |
 | `ENABLE_COST_TRACKING`, `ENABLE_RATE_LIMITER` | Optional LLM cost tracking and client-side rate limiting |
@@ -290,4 +293,4 @@ If Gemini quota error detected (429 / ResourceExhausted), system switches to stu
 
 ---
 
-Created from the original `email_assistant_guide_v2.md` and updated to match the current production setup (Cloud Run + Vercel + Gemini; database not yet connected; Redis/Chroma unused). Suggestions & contributions welcome.
+Created from the original [`email_assistant_guide_v2.md`](docs/guides/email_assistant_guide_v2.md) and updated to match the current production setup (Cloud Run + Vercel + Gemini; database not yet connected; Redis/Chroma unused). Suggestions & contributions welcome.

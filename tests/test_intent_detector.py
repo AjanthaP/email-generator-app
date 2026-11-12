@@ -14,7 +14,7 @@ class FakeLLM:
 
 
 class FakeLLMWrapper:
-    def invoke_chain(self, _chain, _params):
+    def invoke_chain(self, _chain, _params, **_kwargs):
         return SimpleNamespace(content="unsupported_category")
 
 

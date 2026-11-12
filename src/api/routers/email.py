@@ -1,7 +1,7 @@
 """Email generation endpoints."""
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.concurrency import run_in_threadpool
 
 from src.memory.memory_manager import MemoryManager
@@ -11,6 +11,8 @@ from src.agents.review import ReviewAgent
 from src.agents.tone_stylist import ToneStylistAgent
 from src.agents.personalization import PersonalizationAgent
 from src.utils.llm_wrapper import make_wrapper
+from src.utils.config import settings
+from src.utils import telemetry
 from ..schemas import EmailGenerateRequest, EmailGenerateResponse, RegenerateRequest, RegenerateResponse
 
 router = APIRouter()
@@ -32,9 +34,16 @@ def _prepare_prompt(payload: EmailGenerateRequest) -> str:
 
 
 @router.post("/generate", response_model=EmailGenerateResponse)
-async def generate_email(payload: EmailGenerateRequest) -> EmailGenerateResponse:
+async def generate_email(
+    payload: EmailGenerateRequest, request: Request, response: Response
+) -> EmailGenerateResponse:
     if not payload.prompt.strip():
         raise HTTPException(status_code=400, detail="Prompt must not be empty")
+
+    # One ID for every telemetry event of this request. A caller-supplied
+    # X-Request-ID is reused when it looks safe.
+    request_id = telemetry.request_id_from_header(request.headers.get("x-request-id"))
+    response.headers["X-Request-ID"] = request_id
 
     user_id = payload.user_id or "default"
     drafts_before_call = _memory_manager.load_drafts(user_id)
@@ -52,6 +61,10 @@ async def generate_email(payload: EmailGenerateRequest) -> EmailGenerateResponse
             tone=payload.tone or "formal",
             developer_mode=payload.developer_mode,
             length_preference=payload.length_preference,
+            # Passed explicitly: execute_workflow binds the telemetry context
+            # inside the worker thread.
+            request_id=request_id,
+            endpoint="email.generate",
         )
     except Exception as exc:  # pylint: disable=broad-exception-caught
         raise HTTPException(status_code=500, detail=f"Workflow error: {exc}") from exc
@@ -142,7 +155,38 @@ def calculate_diff_ratio(original: str, edited: str) -> float:
 
 
 @router.post("/regenerate", response_model=RegenerateResponse)
-async def regenerate_draft(payload: RegenerateRequest) -> RegenerateResponse:
+async def regenerate_draft(
+    payload: RegenerateRequest, request: Request, response: Response
+) -> RegenerateResponse:
+    """Regenerate a draft; its LLM calls share one telemetry request ID."""
+    request_id = telemetry.request_id_from_header(request.headers.get("x-request-id"))
+    response.headers["X-Request-ID"] = request_id
+    # run_in_threadpool copies this context into its worker threads, so the
+    # agents called below inherit the request ID.
+    with telemetry.request_scope("email.regenerate", request_id):
+        result: Optional[RegenerateResponse] = None
+        error: Optional[BaseException] = None
+        try:
+            result = await _regenerate_draft(payload)
+            return result
+        except Exception as exc:
+            error = exc
+            raise
+        finally:
+            telemetry.emit_request_summary(
+                {
+                    "final_draft": result.final_draft if result else "",
+                    "length_preference": payload.length_preference,
+                    "tone": payload.tone,
+                    "intent": payload.intent,
+                    "metadata": {"source": "llm", "model": settings.gemini_model},
+                },
+                status="error" if error else "ok",
+                error=error,
+            )
+
+
+async def _regenerate_draft(payload: RegenerateRequest) -> RegenerateResponse:
     """
     Regenerate draft from user-edited version using adaptive workflow.
     

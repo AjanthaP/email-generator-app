@@ -5,6 +5,11 @@ These templates are used by LLM agents to generate structured outputs.
 
 from langchain_core.prompts import ChatPromptTemplate
 
+# Version tag for every prompt in this module. Bump it whenever a prompt
+# changes; telemetry records it on every LLM call so quality shifts can be
+# traced to prompt edits.
+PROMPT_VERSION = "v1"
+
 # Input Parser Prompt (shared across InputParserAgent)
 INPUT_PARSER_PROMPT = ChatPromptTemplate.from_template(
    """
@@ -433,7 +438,7 @@ Rules:
 4. Keep reasoning concise (<= 25 words).
 5. If unsure, choose deterministic safety: retry if retries remain else fallback.
 
-Return ONLY valid JSON: {"decision": "continue|retry|fallback", "reason": "short explanation"}
+Return ONLY valid JSON: {{"decision": "continue|retry|fallback", "reason": "short explanation"}}
 Do NOT wrap JSON in markdown fences. No additional text.
 """
 )

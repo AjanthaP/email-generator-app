@@ -12,6 +12,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from src.utils.prompts import REVIEW_AGENT_PROMPT
 import re
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
+from src.utils import telemetry
 from src.utils.llm_response import extract_response_text
 import logging
 
@@ -80,7 +81,7 @@ class ReviewAgent:
                 "tone": tone,
                 "intent": intent,
                 "target_length": target,
-            })
+            }, agent="review")
 
             improved_text = extract_response_text(response)
             improved = improved_text.strip() != draft.strip()
@@ -94,6 +95,7 @@ class ReviewAgent:
 
         except Exception as e:
             logger.exception(f"Error reviewing draft: {e}")
+            telemetry.record_fallback(telemetry.classify_error(e), agent="review", detail=str(e))
             # Return original draft if review fails
             return {
                 "approved": True,

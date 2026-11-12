@@ -14,6 +14,7 @@ from src.utils.prompts import INPUT_PARSER_PROMPT
 from pydantic import BaseModel, Field, field_validator, ValidationError
 import json
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
+from src.utils import telemetry
 from src.utils.llm_response import extract_response_text
 import logging
 
@@ -97,7 +98,7 @@ class InputParserAgent:
 
         try:
             chain = self.prompt | self.llm
-            response = self.llm_wrapper.invoke_chain(chain, {"user_input": user_input})
+            response = self.llm_wrapper.invoke_chain(chain, {"user_input": user_input}, agent="input_parser")
 
             # Extract JSON from response
             content = extract_response_text(response)
@@ -148,6 +149,7 @@ class InputParserAgent:
         except (json.JSONDecodeError, ValidationError) as e:
             # Log as info (not fatal) and return fallback structure
             logger.warning(f"[InputParserAgent] Parse validation error, using fallback: {e}")
+            telemetry.record_fallback("invalid_output", agent="input_parser", detail=str(e))
             return self._fallback_parse(user_input)
     
     def _fallback_parse(self, user_input: str) -> ParsedInput:

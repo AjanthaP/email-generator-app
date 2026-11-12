@@ -25,7 +25,10 @@ class Settings(BaseSettings):
     # When true, RouterAgent will use an LLM to decide among continue | retry | fallback
     # rather than purely deterministic rules. Falls back automatically if disabled or
     # if model invocation fails.
-    enable_llm_router: bool = True
+    # Off by default: until Nov 2026 the router prompt had unescaped braces, so the
+    # LLM path always failed before calling Gemini and the deterministic rules ran.
+    # Turning it on adds one Gemini call per request.
+    enable_llm_router: bool = False
 
     # Observability / Tracing (LangSmith / LangChain)
     enable_langsmith: bool = False  # master feature toggle
@@ -47,6 +50,14 @@ class Settings(BaseSettings):
 
     # Metrics persistence
     metrics_output_dir: str = "data/metrics"
+
+    # Telemetry and logging (see src/utils/telemetry.py, src/utils/logging_config.py)
+    # Sinks: auto (log on Cloud Run, log+file elsewhere) | log | file | log,file | none
+    telemetry_sinks: str = "auto"
+    # Override the JSONL path (default: <metrics_output_dir>/events-YYYY-MM-DD.jsonl)
+    telemetry_file: Optional[str] = None
+    # json (one JSON object per line, for Cloud Logging) | text
+    log_format: str = "json"
     metrics_flush_interval: int = 60  # seconds between auto flush (if implemented later)
 
     # === INFRASTRUCTURE CONFIGURATION ===

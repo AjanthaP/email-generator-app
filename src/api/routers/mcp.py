@@ -25,6 +25,7 @@ class _EmailGeneratorAdapter:
                 user_id=user_id or "default",
                 developer_mode=developer_mode,
                 length_preference=length_preference,
+                endpoint="mcp.generate_email",
             )
 
         # Offload to thread to avoid blocking the event loop

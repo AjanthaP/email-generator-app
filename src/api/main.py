@@ -12,16 +12,15 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError, HTTPException
 
 from src.utils.config import settings
+from src.utils import telemetry
+from src.utils.logging_config import configure_logging
 from .routers import auth, email, users, debug, extension
 from .routers import mcp as mcp_router
 from .schemas import HealthCheckResponse
 
-# Send application logs (src.*) to stdout. Without this, logger.info calls from
-# agents and the pipeline are dropped because only uvicorn's loggers have handlers.
-logging.basicConfig(
-    level=getattr(logging, str(settings.log_level).upper(), logging.INFO),
-    format="%(asctime)s %(levelname)s %(name)s %(message)s",
-)
+# Send all logs (app, uvicorn, telemetry) to stdout, one JSON object per line
+# (LOG_FORMAT=text for local reading). Cloud Run forwards stdout to Cloud Logging.
+configure_logging(settings.log_level, settings.log_format)
 logger = logging.getLogger(__name__)
 
 
@@ -32,6 +31,8 @@ async def lifespan(app: FastAPI):
     logger.info("=" * 60)
     logger.info("Starting AI Email Assistant API...")
     logger.info("=" * 60)
+    # Marks deploys and config changes in the telemetry timeline.
+    telemetry.emit_startup()
     
     # Log database configuration status (don't initialize yet - let it happen lazily)
     if settings.database_url:
@@ -39,7 +40,7 @@ async def lifespan(app: FastAPI):
         logger.info("PostgreSQL database will be initialized on first use")
     else:
         logger.warning("⚠ DATABASE_URL not configured - using JSON file storage")
-        logger.info("To enable PostgreSQL: Set DATABASE_URL environment variable in Railway")
+        logger.info("To enable PostgreSQL: set DATABASE_URL on the Cloud Run service")
     
     yield
     

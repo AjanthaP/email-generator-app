@@ -10,10 +10,10 @@
 
 ## Day 0: Before starting (15 min)
 
-- [ ] **Revoke the Gemini API key** that was committed in `.env.minimal.railway`, and create a new one (Google AI Studio). It is still in git history, so rotating it is the only real fix.
-- [ ] **Generate a new `JWT_SECRET_KEY`**. The old one is in git history too.
-- [ ] If production auth uses the JSON users file, the old `admin@example.com` account has a publicly known password (`scripts/setup_auth.py`). Change it, or recreate the users with your own passwords.
-- [ ] Merge the `chore/repo-cleanup` branch.
+- [x] **Revoke the Gemini API key** that was committed in `.env.minimal.railway`, and create a new one (Google AI Studio). It is still in git history, so rotating it is the only real fix. *Done: old key revoked, Cloud Run uses the new one.*
+- [x] ~~**Generate a new `JWT_SECRET_KEY`**. The old one is in git history too.~~ *Not needed: the code never reads `JWT_SECRET_KEY`; sessions use random tokens.*
+- [x] ~~If production auth uses the JSON users file, the old `admin@example.com` account has a publicly known password (`scripts/setup_auth.py`). Change it, or recreate the users with your own passwords.~~ *Not needed: the account is only created by running `scripts/setup_auth.py` by hand. The container never runs it and `data/users/` ships empty, so it doesn't exist in production.*
+- [x] Merge the `chore/repo-cleanup` branch. *Done: PR #4.*
 
 ---
 
@@ -21,16 +21,20 @@
 
 Most of this already exists: `src/utils/llm_wrapper.py` records model, latency, tokens, cost and errors for each LLM call. It's missing context and persistence.
 
-- [ ] **Add fields to each call record** (`CallRecord` in `src/utils/metrics.py`): `request_id`, `agent`, `prompt_version`, `finish_reason`, `retries`, `is_fallback`.
-- [ ] **Pass the agent name** into `LLMWrapper.invoke_chain(..., agent="draft_writer")` from each agent in `src/agents/`.
-- [ ] **Generate a `request_id`** in `POST /api/email/generate` (`src/api/routers/email.py`). Pass it explicitly into `execute_workflow()`, and set a `contextvars` value *inside* the worker thread, because the workflow runs via `run_in_threadpool`.
-- [ ] **Route the Router agent through the wrapper.** `src/agents/router.py` calls `self.llm.invoke(prompt)` directly, so its calls are never metered, and it runs on every request.
-- [ ] **Save every call:** add an `llm_calls` table in `src/db/models.py` (Postgres), with JSONL in `data/metrics/` as the fallback when there's no `DATABASE_URL`. Today the metrics live in one in-memory list for the whole process and are lost on restart.
-- [ ] **Add a per-request summary row**, `requests`, with: `request_id`, `source` (llm/stub), agents that errored or were skipped (from `review_notes`), length deviation vs. target (from the existing `original_word_count` / `final_word_count` metadata), total latency and total cost.
-- [ ] **Add a version tag** for prompts: `PROMPT_VERSION = "v1"` in `src/utils/prompts.py`, logged on every call.
-- [ ] **Switch logs to JSON lines** (one event per line) in `src/api/main.py` so the agent can query them.
+- [x] **Add fields to each call record** (`CallRecord` in `src/utils/metrics.py`): `request_id`, `agent`, `prompt_version`, `finish_reason`, `retries`, `is_fallback`. *Done, plus `error_type` (quota / timeout / error). `is_fallback` lives in `agent_fallback` events and `request_summary.is_fallback` rather than on the call row: an agent decides to fall back after the call returns (for example, the parser gets a 200 with invalid JSON), so the call row can't know yet.*
+- [x] **Pass the agent name** into `LLMWrapper.invoke_chain(..., agent="draft_writer")` from each agent in `src/agents/`.
+- [x] **Generate a `request_id`** in `POST /api/email/generate` (`src/api/routers/email.py`). Pass it explicitly into `execute_workflow()`, and set a `contextvars` value *inside* the worker thread, because the workflow runs via `run_in_threadpool`. *Done. A safe client `X-Request-ID` is reused; the ID is returned in the `X-Request-ID` header and `metadata.request_id`. `/regenerate`, the extension and MCP paths get request IDs too.*
+- [x] **Route the Router agent through the wrapper.** `src/agents/router.py` calls `self.llm.invoke(prompt)` directly, so its calls are never metered, and it runs on every request. *Done, with one attempt (no retries). Found while testing: `ROUTER_AGENT_PROMPT` had unescaped `{...}` braces, so formatting it always raised and the router never actually called Gemini. Fixed the prompt and set `ENABLE_LLM_ROUTER` to `false` by default, which keeps production behaving as it did. Setting it to `true` adds one Gemini call per request. The pipeline doesn't act on its decision yet; see "Make the LLM router useful" under Later.*
+- [x] ~~**Save every call:** add an `llm_calls` table in `src/db/models.py` (Postgres), with JSONL in `data/metrics/` as the fallback when there's no `DATABASE_URL`. Today the metrics live in one in-memory list for the whole process and are lost on restart.~~ *Decision (Nov 12): no database for now. Every event is one JSON line on stdout, which Cloud Run sends to Cloud Logging (30 days, SQL via Log Analytics), plus an append-only JSONL file locally (`data/metrics/events-YYYY-MM-DD.jsonl`). `TELEMETRY_SINKS=auto` turns the file off on Cloud Run, where disk is in memory. The Day 3 tools read through a store interface, so Firestore, BigQuery or Postgres can be added later as another backend. The in-memory list is now capped at 2,000 calls.*
+- [x] **Add a per-request summary row**, `requests`, with: `request_id`, `source` (llm/stub), agents that errored or were skipped (from `review_notes`), length deviation vs. target (from the existing `original_word_count` / `final_word_count` metadata), total latency and total cost. *Done as the `request_summary` event. Deviation uses the pre-trim word count, because trimming would hide a prompt that writes far too much. Also records retries, finish reasons, truncated calls, tokens, and LLM latency next to wall-clock latency.*
+- [x] **Add a version tag** for prompts: `PROMPT_VERSION = "v1"` in `src/utils/prompts.py`, logged on every call.
+- [x] **Switch logs to JSON lines** (one event per line) in `src/api/main.py` so the agent can query them. *Done in `src/utils/logging_config.py`, uvicorn logs included. Every line carries `request_id` and `agent`. `LOG_FORMAT=text` for local reading. A `startup` event records revision, model and prompt version.*
 
-**Done when:** one generation produces about 7 call rows that share one `request_id`, plus one summary row.
+**Done when:** one generation produces about 7 call rows that share one `request_id`, plus one summary row. *Verified in `tests/test_telemetry.py`: 7 rows with `ENABLE_LLM_ROUTER=true`, 6 with the default. Event schema: see the docstring of `src/utils/telemetry.py`.*
+
+**Found on Day 1, to keep in mind:**
+- The wrapper retries every error, quota included, and honours Gemini's "retry in Ns" hint (capped at 60 s). One exhausted-quota call can wait about 3 minutes before the stub fallback. Design the `quota_429` fault with this in mind.
+- `ENABLE_CHROMADB` defaults to `true`. With the current ChromaDB version, setup fails, and it is retried on every personalization call (about 2 s each locally). Set `ENABLE_CHROMADB=false` for the Day 2 runs, and check whether Cloud Run sets it.
 
 ---
 
@@ -83,6 +87,18 @@ Most of this already exists: `src/utils/llm_wrapper.py` records model, latency, 
 ---
 
 ## Later (out of scope for 4 days)
+
+- [ ] Cache the ChromaDB setup failure, or default `ENABLE_CHROMADB` to `false` (see Day 1 notes)
+- [ ] `LLMWrapper.invoke_chain` logs a 200-character preview of every model response at INFO, so generated email text ends up in Cloud Logging. Consider DEBUG.
+- [ ] **Make the LLM router useful, then decide whether to turn on `ENABLE_LLM_ROUTER`.** Day 1 fixed the prompt, metering and metadata merge, so the call now works (tested with a fake model only). Still missing:
+  - [ ] **Act on `retry`.** Nothing reads `routing_decision` today, so `retry` does nothing and `fallback` (which replaces the draft with a template) is the only decision with an effect. Add a loop in `src/workflow/pipeline.py`: on `retry`, run Review again with the issues as feedback, add 1 to `retry_count`, and ask the router again.
+  - [ ] **Cap retries with a setting, `ROUTER_MAX_RETRIES`, default `2`.** It replaces the hard-coded `max_retries=3` in `RouterAgent.__init__` and applies to both the LLM and the fixed-rules path.
+  - [ ] **Tighten `route_next_step()`.** It returns `retry` for any Review issue (for example "Email too short"), so once the loop exists most requests would retry. Retry only on issues a Review pass can fix.
+  - [ ] **Give it real inputs.** Its summary uses `error`, `retry_count` and `needs_improvement`, which the pipeline never sets. Use Review's issues, agent errors from `review_notes`, the agents that fell back (telemetry), and the length deviation.
+  - [ ] **Guard `fallback`.** Replace the draft with the template only when it's unusable (empty, or no greeting); otherwise treat it as `continue`.
+  - [ ] **Check against real Gemini.** Run some requests locally with `ENABLE_LLM_ROUTER=true`, then look at the router's `llm_call` events and how often it records `invalid_output` fallbacks.
+  - Cost: one more Gemini call per request, plus one or more per retry (at most 2 retries).
+  - Also useful for triage: a working retry loop adds a realistic failure mode, "retries quietly double the cost per request".
 
 - [ ] OpenTelemetry traces exported to Grafana or CloudWatch
 - [ ] An LLM-judge quality score per email, in addition to length deviation

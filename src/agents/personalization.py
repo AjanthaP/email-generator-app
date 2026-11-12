@@ -13,6 +13,7 @@ from src.utils.prompts import PERSONALIZATION_PROMPT
 import json
 import os
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
+from src.utils import telemetry
 from src.utils.llm_response import extract_response_text
 import re
 from textwrap import shorten
@@ -208,7 +209,7 @@ class PersonalizationAgent:
                 "style_notes": profile.get("style_notes", "professional"),
                 "target_length": target,
                 "reference_context": reference_context,
-            })
+            }, agent="personalization")
             
             personalized = extract_response_text(response) or f"{draft}{sig_final}"
 
@@ -232,6 +233,7 @@ class PersonalizationAgent:
             
         except Exception as e:
             logger.exception(f"Error personalizing draft: {e}")
+            telemetry.record_fallback(telemetry.classify_error(e), agent="personalization", detail=str(e))
             # Add basic signature if personalization fails
             profile = self.get_profile(user_id)
             signature = profile.get("signature", "\n\nBest regards")
