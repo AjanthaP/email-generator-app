@@ -6,11 +6,14 @@ steps, handling errors, managing retries, and providing fallback mechanisms
 when primary processing fails.
 """
 
-from typing import Dict, Literal, List
+from typing import Dict, Literal, List, Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
 import json
 from src.utils.config import settings
 from src.utils.prompts import ROUTER_AGENT_PROMPT
+from src.utils.llm_wrapper import LLMWrapper, make_wrapper
+from src.utils.llm_response import extract_response_text
+from src.utils import telemetry
 import logging
 
 logger = logging.getLogger(__name__)
@@ -35,16 +38,23 @@ class RouterAgent:
         >>> next_step = router.route_next_step(state)
     """
     
-    def __init__(self, llm: ChatGoogleGenerativeAI = None, max_retries: int = 3):
+    def __init__(
+        self,
+        llm: ChatGoogleGenerativeAI = None,
+        max_retries: int = 3,
+        llm_wrapper: Optional[LLMWrapper] = None,
+    ):
         """
         Initialize Router Agent.
         
         Args:
             llm: Optional ChatGoogleGenerativeAI instance (may not be needed)
             max_retries: Maximum number of retry attempts before fallback
+            llm_wrapper: Shared wrapper so router calls are metered like other agents
         """
         self.llm = llm
         self.max_retries = max_retries
+        self.llm_wrapper = llm_wrapper or (make_wrapper(llm) if llm is not None else None)
     
     def route_next_step(self, state: Dict) -> Literal["continue", "retry", "fallback"]:
         """
@@ -96,9 +106,13 @@ class RouterAgent:
         )
 
         try:
-            prompt = ROUTER_AGENT_PROMPT.format_messages(state_summary=summary)
-            response = self.llm.invoke(prompt)
-            raw = response.content.strip()
+            chain = ROUTER_AGENT_PROMPT | self.llm
+            # One attempt only: the deterministic rules are a safe answer, so a
+            # failed routing call should not add retry delays to the request.
+            response = self.llm_wrapper.invoke_chain(
+                chain, {"state_summary": summary}, agent="router", max_retries=0
+            )
+            raw = extract_response_text(response)
             # Attempt JSON parse; clean common formatting artifacts
             if raw.startswith("```"):
                 raw = raw.strip("`")
@@ -117,6 +131,8 @@ class RouterAgent:
             }
         except Exception as e:
             # Fallback to deterministic logic
+            reason = "invalid_output" if isinstance(e, (ValueError, json.JSONDecodeError)) else telemetry.classify_error(e)
+            telemetry.record_fallback(reason, agent="router", detail=str(e))
             deterministic = self.route_next_step(state)
             return {
                 "routing_decision": deterministic,

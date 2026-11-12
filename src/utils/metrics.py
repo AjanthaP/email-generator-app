@@ -14,16 +14,28 @@ import json
 import os
 import threading
 import time
-from dataclasses import dataclass, field
-from typing import Dict, Optional
+from collections import deque
+from dataclasses import asdict, dataclass, field
+from typing import Deque, Dict, Optional
 
 from .config import settings, pricing_for_model
 
-_lock = threading.Lock()
+# Re-entrant: flush_to_disk() calls session_summary() while holding the lock.
+_lock = threading.RLock()
 _start_time = time.time()
+
+# Keep only recent calls in memory; the full history goes to telemetry.
+MAX_CALLS_IN_MEMORY = 2000
 
 @dataclass
 class CallRecord:
+    """One LLM invocation, as recorded by LLMWrapper.invoke_chain.
+
+    request_id/agent/prompt_version tie the call to a pipeline run.
+    finish_reason is the model's stop reason (STOP, MAX_TOKENS, SAFETY, ...).
+    retries counts attempts after the first. error_type is quota, timeout or
+    error (see telemetry.classify_error).
+    """
     model: str
     latency_ms: float
     input_tokens: int
@@ -31,6 +43,12 @@ class CallRecord:
     cost_usd: float
     error: Optional[str] = None
     timestamp: float = field(default_factory=time.time)
+    request_id: Optional[str] = None
+    agent: Optional[str] = None
+    prompt_version: Optional[str] = None
+    finish_reason: Optional[str] = None
+    retries: int = 0
+    error_type: Optional[str] = None
 
 class MetricsManager:
     """Aggregates metrics for the current process/session.
@@ -41,14 +59,15 @@ class MetricsManager:
         summary = metrics.session_summary()
     """
     def __init__(self) -> None:
-        self._calls: list[CallRecord] = []
+        self._calls: Deque[CallRecord] = deque(maxlen=MAX_CALLS_IN_MEMORY)
         self._session_id = f"session_{int(_start_time)}"
 
     def enabled(self) -> bool:
-        """Metrics collection is always enabled; cost computation is conditional.
+        """Metrics collection is always enabled.
 
-        We always track requests/tokens/latency for observability. Cost is only
-        computed when settings.enable_cost_tracking is True.
+        Requests, tokens, latency and estimated cost are always recorded.
+        settings.enable_cost_tracking only controls whether the UI shows cost
+        (reported as cost_tracking_enabled in session_summary).
         """
         return True
 
@@ -60,9 +79,31 @@ class MetricsManager:
         output_tokens: int,
         cost_usd: float,
         error: Optional[str] = None,
-    ) -> None:
+        *,
+        request_id: Optional[str] = None,
+        agent: Optional[str] = None,
+        prompt_version: Optional[str] = None,
+        finish_reason: Optional[str] = None,
+        retries: int = 0,
+        error_type: Optional[str] = None,
+    ) -> CallRecord:
+        record = CallRecord(
+            model,
+            latency_ms,
+            input_tokens,
+            output_tokens,
+            cost_usd,
+            error,
+            request_id=request_id,
+            agent=agent,
+            prompt_version=prompt_version,
+            finish_reason=finish_reason,
+            retries=retries,
+            error_type=error_type,
+        )
         with _lock:
-            self._calls.append(CallRecord(model, latency_ms, input_tokens, output_tokens, cost_usd, error))
+            self._calls.append(record)
+        return record
 
     def session_summary(self) -> Dict:
         with _lock:
@@ -118,7 +159,7 @@ class MetricsManager:
         with _lock:
             payload = {
                 "session": self.session_summary(),
-                "calls": [c.__dict__ for c in self._calls],
+                "calls": [asdict(c) for c in self._calls],
             }
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)

@@ -9,7 +9,7 @@ class FakePrompt:
 
 
 class FakeLLMWrapper:
-    def invoke_chain(self, _chain, _params):
+    def invoke_chain(self, _chain, _params, **_kwargs):
         return SimpleNamespace(content=[
             {"type": "text", "text": "Dear Jane,"},
             {"type": "text", "text": "The updated draft."},

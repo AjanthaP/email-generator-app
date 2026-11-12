@@ -11,6 +11,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from src.utils.prompts import TONE_STYLIST_PROMPT
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
+from src.utils import telemetry
 from src.utils.llm_response import extract_response_text
 import logging
 
@@ -114,12 +115,13 @@ class ToneStylistAgent:
                 "tone": tone,
                 "target_length": target,
                 **guidelines
-            })
+            }, agent="tone_stylist")
             
             return extract_response_text(response)
             
         except Exception as e:
             logger.exception(f"Error adjusting tone: {e}")
+            telemetry.record_fallback(telemetry.classify_error(e), agent="tone_stylist", detail=str(e))
             # Return original draft if tone adjustment fails
             return draft
     

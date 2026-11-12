@@ -210,6 +210,9 @@ Draft history normalized to always expose both `content` and `draft` keys for ba
 | `CORS_ORIGINS`, `FRONTEND_URL` | Extra allowed frontend origins |
 | `DEBUG` | Enables `/docs`, `/redoc` and `/api/debug/*` (keep `false` in production) |
 | `LOG_LEVEL` | Logging level (default `INFO`) |
+| `LOG_FORMAT` | `json` (default; one JSON object per line for Cloud Logging) or `text` |
+| `TELEMETRY_SINKS` | Where telemetry events go: `auto` (default: stdout on Cloud Run, stdout + `data/metrics/events-*.jsonl` elsewhere), `log`, `file`, `log,file`, `none` |
+| `ENABLE_LLM_ROUTER` | Let the Router agent ask Gemini for its decision (default `false`; adds one call per request) |
 | `DONOTUSEGEMINI` or `NO_GEMINI` | Force stub (local) mode when truthy |
 | `ENABLE_LANGSMITH`, `LANGSMITH_API_KEY`, `LANGCHAIN_PROJECT` | Optional LangSmith tracing |
 | `ENABLE_COST_TRACKING`, `ENABLE_RATE_LIMITER` | Optional LLM cost tracking and client-side rate limiting |

@@ -12,6 +12,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from src.utils.prompts import INTENT_DETECTOR_PROMPT
 from enum import Enum
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
+from src.utils import telemetry
 from src.utils.llm_response import extract_response_text
 import re
 import logging
@@ -108,7 +109,7 @@ class IntentDetectorAgent:
                 "email_purpose": parsed_data.get("email_purpose", ""),
                 "key_points": ", ".join(parsed_data.get("key_points", [])),
                 "context": parsed_data.get("context", "")
-            })
+            }, agent="intent_detector")
 
             intent = extract_response_text(response).lower().replace(" ", "_")
 
@@ -125,6 +126,7 @@ class IntentDetectorAgent:
             return EmailIntent.GENERIC.value
         except Exception as e:
             logger.exception(f"Error detecting intent: {e}")
+            telemetry.record_fallback(telemetry.classify_error(e), agent="intent_detector", detail=str(e))
             return EmailIntent.GENERIC.value
 
     @staticmethod

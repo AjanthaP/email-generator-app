@@ -24,6 +24,7 @@ from src.utils.prompts import (
     GENERIC_EMAIL_PROMPT,
 )
 from src.utils.llm_wrapper import LLMWrapper, make_wrapper
+from src.utils import telemetry
 from src.utils.llm_response import extract_response_text
 import logging
 
@@ -128,12 +129,13 @@ class DraftWriterAgent:
                 "original_request": parsed_data.get("original_request", ""),
                 "tone": tone,
                 "target_length": effective_length,
-            })
+            }, agent="draft_writer")
             draft = extract_response_text(response)
             return draft
 
         except Exception as e:
             logger.exception(f"Error writing draft: {e}")
+            telemetry.record_fallback(telemetry.classify_error(e), agent="draft_writer", detail=str(e))
             return self._fallback_draft(parsed_data, intent)
     
     def _fallback_draft(self, parsed_data: Dict, intent: str = "") -> str:

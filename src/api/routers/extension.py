@@ -129,6 +129,7 @@ async def extension_generate(
             tone=payload.tone,
             developer_mode=False,
             length_preference=payload.length_preference,
+            endpoint="extension.generate",
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Draft generation failed: {exc}")

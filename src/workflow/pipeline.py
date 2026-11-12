@@ -5,7 +5,8 @@ Runs the agents in a fixed sequential order (parse -> intent -> draft -> tone
 state dict. This is a plain sequential loop, not a LangGraph StateGraph.
 On Gemini quota errors it falls back to a local stub generator.
 """
-from typing import TypedDict, Any, Dict, Callable, Optional
+from dataclasses import dataclass, field
+from typing import TypedDict, Any, Dict, Callable, List, Optional
 import os
 import sys
 
@@ -21,6 +22,7 @@ from src.agents.review import ReviewAgent
 from src.agents.router import RouterAgent
 from src.utils.llm_wrapper import make_wrapper, LLMWrapper
 from src.utils.observability import activate_langsmith
+from src.utils import telemetry
 import logging
 
 logger = logging.getLogger(__name__)
@@ -66,7 +68,7 @@ def create_agents(llm: ChatGoogleGenerativeAI) -> Dict[str, Callable[[Dict], Dic
     tone_stylist = ToneStylistAgent(llm, llm_wrapper=wrapper)
     personalization = PersonalizationAgent(llm, llm_wrapper=wrapper)
     review = ReviewAgent(llm, llm_wrapper=wrapper)
-    router = RouterAgent(llm)
+    router = RouterAgent(llm, llm_wrapper=wrapper)
 
     return {
         "input_parser": input_parser,
@@ -191,6 +193,14 @@ def _generate_stub_state(user_input: str, tone: str = "formal") -> EmailState:
     return state
 
 
+@dataclass
+class _RunInfo:
+    """What happened during one run, for the telemetry request summary."""
+    agents_run: List[str] = field(default_factory=list)
+    agents_skipped: List[str] = field(default_factory=list)
+    stub_reason: Optional[str] = None
+
+
 def execute_workflow(
     user_input: str,
     llm: Optional[ChatGoogleGenerativeAI] = None,
@@ -199,6 +209,8 @@ def execute_workflow(
     tone: str = "formal",
     developer_mode: bool = False,
     length_preference: Optional[int] = None,
+    request_id: Optional[str] = None,
+    endpoint: str = "workflow",
 ) -> EmailState:
     """Execute the email workflow sequentially and return the final state.
 
@@ -211,13 +223,60 @@ def execute_workflow(
         use_stub: Whether to use stub mode (no LLM calls)
         user_id: User ID for profile personalization (default: "default")
         tone: Desired tone for the email (formal, casual, assertive, empathetic)
+        request_id: ID shared by every telemetry event of this run; generated if omitted
+        endpoint: Caller label recorded in telemetry (e.g. "email.generate")
+
+    Telemetry: the request context is bound here, inside the thread that runs
+    the agents (callers use run_in_threadpool). Each LLM call emits an
+    `llm_call` event and the run ends with one `request_summary` event.
+    The request ID is also returned in `metadata.request_id`.
     """
+    run = _RunInfo()
+    with telemetry.request_scope(endpoint, request_id) as ctx:
+        state: Optional[EmailState] = None
+        error: Optional[BaseException] = None
+        try:
+            state = _run_pipeline(
+                user_input, llm, use_stub, user_id, tone, developer_mode, length_preference, run
+            )
+            state.setdefault("metadata", {})["request_id"] = ctx.request_id
+            return state
+        except Exception as exc:
+            error = exc
+            raise
+        finally:
+            telemetry.emit_request_summary(
+                state,
+                status="error" if error else "ok",
+                agents_run=run.agents_run,
+                agents_skipped=run.agents_skipped,
+                stub_reason=run.stub_reason,
+                error=error,
+            )
+
+
+def _run_pipeline(
+    user_input: str,
+    llm: Optional[ChatGoogleGenerativeAI],
+    use_stub: Optional[bool],
+    user_id: str,
+    tone: str,
+    developer_mode: bool,
+    length_preference: Optional[int],
+    run: _RunInfo,
+) -> EmailState:
+    """Body of execute_workflow; records what ran in `run`."""
     if use_stub is None:
         use_stub = _detect_no_gemini_flag()
+        stub_reason = "no_gemini_flag"
+    else:
+        stub_reason = "requested"
 
     if use_stub:
         # Return a stubbed state for local testing without hitting Gemini
         # IMPORTANT: Return early BEFORE creating any LLM instance
+        run.stub_reason = stub_reason
+        run.agents_skipped = default_graph_order()
         stub = _generate_stub_state(user_input, tone=tone)
         if length_preference and length_preference > 0:
             _apply_length_constraint(stub, length_preference)
@@ -265,18 +324,25 @@ def execute_workflow(
     # Developer trace collection
     developer_trace: list[dict[str, Any]] = []
 
-    for node_name in order:
+    for idx, node_name in enumerate(order):
         agent = agents.get(node_name)
         if agent is None:
             logger.warning(f"[Workflow] Warning: Agent '{node_name}' not found, skipping")
+            run.agents_skipped.append(node_name)
             continue
 
         logger.info(f"[Workflow] Running agent: {node_name}")
+        run.agents_run.append(node_name)
         try:
-            updates = agent(state) or {}
-            # Merge updates into state
+            with telemetry.agent_scope(node_name):
+                updates = agent(state) or {}
+            # Merge updates into state. Agents add metadata keys (review,
+            # router); merge them so they don't wipe source/model/request_id.
             for k, v in updates.items():
-                state[k] = v  # type: ignore[index]
+                if k == "metadata" and isinstance(v, dict) and isinstance(state.get("metadata"), dict):
+                    state["metadata"].update(v)
+                else:
+                    state[k] = v  # type: ignore[index]
             
             logger.info(f"[Workflow] Agent '{node_name}' completed successfully")
 
@@ -300,6 +366,9 @@ def execute_workflow(
             state["review_notes"][node_name] = {"error": str(e)}
 
             if _is_quota_error(e):
+                telemetry.record_fallback("quota", agent=node_name, detail=str(e))
+                run.stub_reason = "quota_fallback"
+                run.agents_skipped.extend(order[idx + 1:])
                 state["review_notes"]["gemini_quota_fallback"] = {
                     "message": "Detected Gemini quota / 429 error and falling back to local stubbed generator.",
                     "original_error": str(e),
@@ -337,6 +406,8 @@ def generate_email(
     user_id: str = "default",
     developer_mode: bool = False,
     length_preference: Optional[int] = None,
+    request_id: Optional[str] = None,
+    endpoint: str = "generate_email",
 ) -> Dict[str, Any]:
     """Convenience wrapper matching the v2 guide's example signature.
 
@@ -363,6 +434,8 @@ def generate_email(
         tone=tone,
         developer_mode=developer_mode,
         length_preference=length_preference,
+        request_id=request_id,
+        endpoint=endpoint,
     )
     # Choose best available draft key
     final = state.get("final_draft") or state.get("personalized_draft") or state.get("styled_draft") or state.get("draft") or ""

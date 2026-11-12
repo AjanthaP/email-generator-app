@@ -34,6 +34,7 @@ from typing import Any, Callable, Optional, Tuple
 
 from .config import settings
 from .metrics import metrics
+from . import telemetry
 try:
     # Optional: rate limiter is only used when enabled
     from .rate_limiter import RateLimiter
@@ -44,7 +45,11 @@ logger = logging.getLogger(__name__)
 
 
 class LLMWrapperError(Exception):
-    """Generic wrapper-level exception."""
+    """Generic wrapper-level exception. ``attempts`` is how many tries were made."""
+
+    def __init__(self, message: str, attempts: int = 0) -> None:
+        super().__init__(message)
+        self.attempts = attempts
 
 
 class LLMWrapper:
@@ -158,6 +163,28 @@ class LLMWrapper:
             LLMWrapperError: if all retries are exhausted or a non-retriable
                 error occurs.
         """
+        result, _attempts = self._run_counted(
+            func,
+            args,
+            kwargs,
+            max_retries=max_retries,
+            initial_backoff=initial_backoff,
+            backoff_factor=backoff_factor,
+            max_backoff=max_backoff,
+        )
+        return result
+
+    def _run_counted(
+        self,
+        func: Callable[..., Any],
+        args: tuple,
+        kwargs: dict,
+        max_retries: Optional[int] = None,
+        initial_backoff: Optional[float] = None,
+        backoff_factor: Optional[float] = None,
+        max_backoff: Optional[float] = None,
+    ) -> Tuple[Any, int]:
+        """Retry loop behind run_with_retries. Returns (result, attempts)."""
         mr = self.max_retries if max_retries is None else max_retries
         ib = self.initial_backoff if initial_backoff is None else initial_backoff
         bf = self.backoff_factor if backoff_factor is None else backoff_factor
@@ -167,7 +194,7 @@ class LLMWrapper:
         while True:
             try:
                 attempt += 1
-                return func(*args, **kwargs)
+                return func(*args, **kwargs), attempt
             except Exception as exc:  # noqa: BLE001 - we want to catch all and rethrow
                 # Parse retry delay if server suggested one
                 suggested = self._parse_retry_delay(exc)
@@ -175,7 +202,9 @@ class LLMWrapper:
                 # If we've exhausted attempts, raise a wrapper error with context
                 if attempt > mr:
                     logger.exception("LLM call failed after %d attempts", attempt)
-                    raise LLMWrapperError(f"LLM call failed after {attempt} attempts: {exc}") from exc
+                    raise LLMWrapperError(
+                        f"LLM call failed after {attempt} attempts: {exc}", attempts=attempt
+                    ) from exc
 
                 # Decide how long to wait: prefer server-suggested, else exponential
                 if suggested is not None and suggested > 0:
@@ -195,11 +224,17 @@ class LLMWrapper:
                 time.sleep(delay)
                 # loop and retry
 
-    def invoke_chain(self, chain: Any, params: dict, **retry_kwargs) -> Any:
+    def invoke_chain(self, chain: Any, params: dict, agent: Optional[str] = None, **retry_kwargs) -> Any:
         """Convenience wrapper for LangChain prompt chains that expose `invoke`.
 
         `chain` is expected to be a callable object with an `invoke(params)` method
         (for example, the result of `prompt | llm`).
+
+        `agent` names the calling agent in telemetry; it defaults to the agent
+        set by the pipeline (telemetry.agent_scope), else "unknown".
+
+        Every call is recorded in `metrics` and emitted as an `llm_call`
+        telemetry event, whether it succeeds or fails.
 
         Returns the chain's response object (whatever the underlying library returns).
         """
@@ -216,10 +251,13 @@ class LLMWrapper:
         # Wrap bound method call
         bound = chain.invoke
 
+        agent_name = agent or telemetry.current_agent() or "unknown"
         start = time.time()
         error_msg: Optional[str] = None
+        error_type: Optional[str] = None
+        attempts = 1
         try:
-            result = self.run_with_retries(bound, params, **retry_kwargs)
+            result, attempts = self._run_counted(bound, (params,), {}, **retry_kwargs)
             
             # Log LLM response content (INFO level so it's visible in production logs)
             if hasattr(result, 'content'):
@@ -233,7 +271,9 @@ class LLMWrapper:
             
             return result
         except Exception as exc:
-            error_msg = str(exc)
+            error_msg = str(exc)[:500]
+            error_type = telemetry.classify_error(exc)
+            attempts = getattr(exc, "attempts", attempts) or attempts
             raise
         finally:
             # Always attempt to record metrics after the call (success or error)
@@ -251,18 +291,24 @@ class LLMWrapper:
                 if out_tok is None:
                     out_tok = self._estimate_output_tokens(result) if 'result' in locals() else 0
 
-                cost = 0.0
-                if getattr(settings, "enable_cost_tracking", False):
-                    cost = metrics.compute_cost(model_name, in_tok, out_tok)
+                # Always estimated; ENABLE_COST_TRACKING only controls whether the UI shows it.
+                cost = metrics.compute_cost(model_name, int(in_tok or 0), int(out_tok or 0))
 
-                metrics.record_call(
+                record = metrics.record_call(
                     model=model_name,
                     latency_ms=latency_ms,
                     input_tokens=int(in_tok or 0),
                     output_tokens=int(out_tok or 0),
                     cost_usd=float(cost or 0.0),
                     error=error_msg,
+                    request_id=telemetry.current_request_id(),
+                    agent=agent_name,
+                    prompt_version=telemetry.current_prompt_version(),
+                    finish_reason=self._extract_finish_reason(result if 'result' in locals() else None),
+                    retries=max(0, int(attempts) - 1),
+                    error_type=error_type,
                 )
+                telemetry.record_llm_call(record)
             except Exception:
                 # Never fail user flow due to metrics
                 logger.debug("Metrics recording failed", exc_info=True)
@@ -275,6 +321,16 @@ class LLMWrapper:
                     pass
 
     # ---- Helpers ----
+    @staticmethod
+    def _extract_finish_reason(result: Any) -> Optional[str]:
+        """Read the model's stop reason (e.g. STOP, MAX_TOKENS) if present."""
+        meta = getattr(result, "response_metadata", None)
+        if isinstance(meta, dict):
+            reason = meta.get("finish_reason")
+            if reason:
+                return str(getattr(reason, "name", reason))
+        return None
+
     def _estimate_input_tokens(self, params: dict) -> int:
         try:
             if not params:
