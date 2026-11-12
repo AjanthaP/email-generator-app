@@ -34,7 +34,7 @@ class ReviewAgent:
     ensure high-quality email output.
     
     Example:
-        >>> llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
+        >>> llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite")
         >>> reviewer = ReviewAgent(llm)
         >>> result = reviewer.review(draft, "formal", "outreach")
         >>> print(result["final_draft"])

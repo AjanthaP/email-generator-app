@@ -36,7 +36,7 @@ class PersonalizationAgent:
     and learned personalization patterns from user edits.
     
     Example:
-        >>> llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
+        >>> llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite")
         >>> personalizer = PersonalizationAgent(llm)
         >>> personal_draft = personalizer.personalize(draft, user_id="user123")
     """

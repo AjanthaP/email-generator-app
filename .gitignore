@@ -63,6 +63,8 @@ data/**/*.json
 data/**/*.pickle
 data/chromadb/
 data/metrics/
+# Labelled incident datasets for the triage eval are committed
+!data/triage/**/*.json
 src/memory/*.json
 !data/**/.gitkeep
 

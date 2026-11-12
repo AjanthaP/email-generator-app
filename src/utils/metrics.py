@@ -55,7 +55,7 @@ class MetricsManager:
 
     Usage:
         from src.utils.metrics import metrics
-        metrics.record_call(model="gemini-2.0-flash", latency_ms=120.5, input_tokens=100, output_tokens=180, cost_usd=0.0002)
+        metrics.record_call(model="gemini-3.5-flash-lite", latency_ms=120.5, input_tokens=100, output_tokens=180, cost_usd=0.0002)
         summary = metrics.session_summary()
     """
     def __init__(self) -> None:

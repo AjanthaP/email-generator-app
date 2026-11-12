@@ -48,7 +48,7 @@ SCHEMA_VERSION = 1
 logger = logging.getLogger("telemetry")
 _file_lock = threading.Lock()
 
-_QUOTA_MARKERS = ("quota", "429", "resourceexhausted", "resource exhausted", "you exceeded", "generate_content_free_tier")
+_QUOTA_MARKERS = ("quota", "429", "resourceexhausted", "resource_exhausted", "resource exhausted", "you exceeded", "generate_content_free_tier")
 _TIMEOUT_MARKERS = ("timeout", "timed out", "deadline", "504")
 _REQUEST_ID_RE = re.compile(r"[A-Za-z0-9._-]{8,64}")
 
@@ -83,14 +83,20 @@ def request_id_from_header(value: Optional[str]) -> str:
 
 
 @contextmanager
-def request_scope(endpoint: str, request_id: Optional[str] = None) -> Iterator[RequestContext]:
+def request_scope(
+    endpoint: str, request_id: Optional[str] = None, prompt_version: Optional[str] = None
+) -> Iterator[RequestContext]:
     """Bind a request context for the duration of a pipeline run.
 
     Set this inside the thread that runs the work: the workflow runs through
     ``run_in_threadpool``, so the request handler's own context is not where
-    the agents execute.
+    the agents execute. ``prompt_version`` overrides ``PROMPT_VERSION``.
     """
-    ctx = RequestContext(request_id=request_id or new_request_id(), endpoint=endpoint)
+    ctx = RequestContext(
+        request_id=request_id or new_request_id(),
+        endpoint=endpoint,
+        prompt_version=prompt_version or PROMPT_VERSION,
+    )
     token = _request.set(ctx)
     try:
         yield ctx
@@ -329,19 +335,27 @@ def emit_request_summary(
     return emit("request_summary", msg, level=logging.WARNING if degraded else logging.INFO, **fields)
 
 
-def emit_startup() -> Dict[str, Any]:
-    """Emit a ``startup`` event so deploys and config changes appear in the timeline."""
+def emit_startup(**overrides: Any) -> Dict[str, Any]:
+    """Emit a ``startup`` event so deploys and config changes appear in the timeline.
+
+    ``overrides`` replace reported fields (the incident generator uses this to
+    record simulated deploys).
+    """
+    fields: Dict[str, Any] = {
+        "model": settings.gemini_model,
+        "prompt_version": PROMPT_VERSION,
+        "max_tokens": settings.max_tokens,
+        "temperature": settings.temperature,
+        "llm_router": bool(settings.enable_llm_router),
+        "database": bool(getattr(settings, "database_url", None)),
+        "telemetry_sinks": sorted(active_sinks()),
+        "python": sys.version.split()[0],
+    }
+    fields.update(overrides)
     return emit(
         "startup",
-        f"startup model={settings.gemini_model} prompt_version={PROMPT_VERSION}",
-        model=settings.gemini_model,
-        prompt_version=PROMPT_VERSION,
-        max_tokens=settings.max_tokens,
-        temperature=settings.temperature,
-        llm_router=bool(settings.enable_llm_router),
-        database=bool(getattr(settings, "database_url", None)),
-        telemetry_sinks=sorted(active_sinks()),
-        python=sys.version.split()[0],
+        f"startup model={fields['model']} prompt_version={fields['prompt_version']}",
+        **fields,
     )
 
 

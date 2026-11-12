@@ -12,7 +12,7 @@ from src.agents.tone_stylist import ToneStylistAgent
 from src.agents.personalization import PersonalizationAgent
 from src.utils.llm_wrapper import make_wrapper
 from src.utils.config import settings
-from src.utils import telemetry
+from src.utils import faults, telemetry
 from ..schemas import EmailGenerateRequest, EmailGenerateResponse, RegenerateRequest, RegenerateResponse
 
 router = APIRouter()
@@ -53,19 +53,22 @@ async def generate_email(
     full_prompt = _prepare_prompt(payload)
 
     try:
-        state: Dict[str, Any] = await run_in_threadpool(
-            execute_workflow,
-            full_prompt,
-            use_stub=payload.use_stub,
-            user_id=user_id,
-            tone=payload.tone or "formal",
-            developer_mode=payload.developer_mode,
-            length_preference=payload.length_preference,
-            # Passed explicitly: execute_workflow binds the telemetry context
-            # inside the worker thread.
-            request_id=request_id,
-            endpoint="email.generate",
-        )
+        # X-Fault is honoured only when ENABLE_FAULTS=true and never on Cloud
+        # Run. run_in_threadpool copies this context into the worker thread.
+        with faults.from_header(request.headers.get("x-fault")):
+            state: Dict[str, Any] = await run_in_threadpool(
+                execute_workflow,
+                full_prompt,
+                use_stub=payload.use_stub,
+                user_id=user_id,
+                tone=payload.tone or "formal",
+                developer_mode=payload.developer_mode,
+                length_preference=payload.length_preference,
+                # Passed explicitly: execute_workflow binds the telemetry context
+                # inside the worker thread.
+                request_id=request_id,
+                endpoint="email.generate",
+            )
     except Exception as exc:  # pylint: disable=broad-exception-caught
         raise HTTPException(status_code=500, detail=f"Workflow error: {exc}") from exc
 

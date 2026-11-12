@@ -48,7 +48,7 @@ class DraftWriterAgent:
     - information_request: Information/help request emails
     
     Example:
-        >>> llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
+        >>> llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite")
         >>> writer = DraftWriterAgent(llm)
         >>> draft = writer.write("outreach", parsed_data, "formal")
     """
