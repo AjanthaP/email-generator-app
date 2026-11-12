@@ -197,7 +197,7 @@ Draft history normalized to always expose both `content` and `draft` keys for ba
 4. ToneStylist – apply tone guidelines without altering greeting.
 5. Personalization – inject profile; safeguard recipient/greeting.
 6. Review – check tone, clarity, grammar, completeness and length (±5%), and return an improved draft without changing the greeting or recipient. Refinement used to be a separate agent and is now part of this step; the old `REFINEMENT_AGENT_PROMPT` in `src/utils/prompts.py` is no longer used.
-7. Router – check the final state and decide continue, retry or fallback.
+7. Router – check the final state and decide continue, retry or fallback. It uses fixed rules unless `ENABLE_LLM_ROUTER=true`, which asks Gemini instead. The pipeline doesn't act on `retry` yet; a retry loop capped by `ROUTER_MAX_RETRIES` (default 2) is planned in [TODO.md](TODO.md). A `fallback` decision replaces the draft with a basic template.
 
 ## 🔧 Environment Variables (Key)
 | Variable | Purpose |
@@ -212,7 +212,7 @@ Draft history normalized to always expose both `content` and `draft` keys for ba
 | `LOG_LEVEL` | Logging level (default `INFO`) |
 | `LOG_FORMAT` | `json` (default; one JSON object per line for Cloud Logging) or `text` |
 | `TELEMETRY_SINKS` | Where telemetry events go: `auto` (default: stdout on Cloud Run, stdout + `data/metrics/events-*.jsonl` elsewhere), `log`, `file`, `log,file`, `none` |
-| `ENABLE_LLM_ROUTER` | Let the Router agent ask Gemini for its decision (default `false`; adds one call per request) |
+| `ENABLE_LLM_ROUTER` | Let the Router agent ask Gemini for its decision (default `false`; adds one call per request). See the Router notes under Agents Overview before turning it on. |
 | `DONOTUSEGEMINI` or `NO_GEMINI` | Force stub (local) mode when truthy |
 | `ENABLE_LANGSMITH`, `LANGSMITH_API_KEY`, `LANGCHAIN_PROJECT` | Optional LangSmith tracing |
 | `ENABLE_COST_TRACKING`, `ENABLE_RATE_LIMITER` | Optional LLM cost tracking and client-side rate limiting |
