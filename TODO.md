@@ -10,10 +10,10 @@
 
 ## Day 0: Before starting (15 min)
 
-- [ ] **Revoke the Gemini API key** that was committed in `.env.minimal.railway`, and create a new one (Google AI Studio). It is still in git history, so rotating it is the only real fix.
-- [ ] **Generate a new `JWT_SECRET_KEY`**. The old one is in git history too.
-- [ ] If production auth uses the JSON users file, the old `admin@example.com` account has a publicly known password (`scripts/setup_auth.py`). Change it, or recreate the users with your own passwords.
-- [ ] Merge the `chore/repo-cleanup` branch.
+- [x] **Revoke the Gemini API key** that was committed in `.env.minimal.railway`, and create a new one (Google AI Studio). It is still in git history, so rotating it is the only real fix. *Done: old key revoked, Cloud Run uses the new one.*
+- [x] ~~**Generate a new `JWT_SECRET_KEY`**. The old one is in git history too.~~ *Not needed: the code never reads `JWT_SECRET_KEY`; sessions use random tokens.*
+- [x] ~~If production auth uses the JSON users file, the old `admin@example.com` account has a publicly known password (`scripts/setup_auth.py`). Change it, or recreate the users with your own passwords.~~ *Not needed: the account is only created by running `scripts/setup_auth.py` by hand. The container never runs it and `data/users/` ships empty, so it doesn't exist in production.*
+- [x] Merge the `chore/repo-cleanup` branch. *Done: PR #4.*
 
 ---
 
