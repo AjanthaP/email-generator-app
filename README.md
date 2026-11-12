@@ -212,6 +212,7 @@ Draft history normalized to always expose both `content` and `draft` keys for ba
 | `LOG_LEVEL` | Logging level (default `INFO`) |
 | `LOG_FORMAT` | `json` (default; one JSON object per line for Cloud Logging) or `text` |
 | `TELEMETRY_SINKS` | Where telemetry events go: `auto` (default: stdout on Cloud Run, stdout + `data/metrics/events-*.jsonl` elsewhere), `log`, `file`, `log,file`, `none` |
+| `ENABLE_FAULTS`, `FAULTS` | Fault injection for the triage eval (`src/utils/faults.py`). Local only: always off on Cloud Run. |
 | `ENABLE_LLM_ROUTER` | Let the Router agent ask Gemini for its decision (default `false`; adds one call per request). See the Router notes under Agents Overview before turning it on. |
 | `DONOTUSEGEMINI` or `NO_GEMINI` | Force stub (local) mode when truthy |
 | `ENABLE_LANGSMITH`, `LANGSMITH_API_KEY`, `LANGCHAIN_PROJECT` | Optional LangSmith tracing |

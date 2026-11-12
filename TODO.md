@@ -40,7 +40,7 @@ Most of this already exists: `src/utils/llm_wrapper.py` records model, latency, 
 
 ## Day 2: Fault injection and a labelled incident dataset
 
-- [ ] **Create `src/utils/faults.py`**: fault switches read from env vars or a request header, active only when `ENABLE_FAULTS=true`.
+- [x] **Create `src/utils/faults.py`**: fault switches read from env vars or a request header, active only when `ENABLE_FAULTS=true`. *Done. Always off on Cloud Run (`K_SERVICE` set), whatever `ENABLE_FAULTS` says. Switch on with `FAULTS=...`, the `X-Fault` header on `/api/email/generate`, or `faults.injected(...)` in code. Spec: `name[:arg[:arg]]`, comma-separated, e.g. `quota_429:0.4` or `slow_model:review:2.5`. Injected errors look real and the module never logs, so the telemetry never names a fault (a test checks this).*
 
   | Fault | How | What the telemetry shows |
   |---|---|---|
@@ -52,10 +52,19 @@ Most of this already exists: `src/utils/llm_wrapper.py` records model, latency, 
   | `agent_crash` | `tone_stylist` raises an exception | Agent silently skipped, email unstyled |
   | `cost_spike` | Pad the context 5× | Tokens and cost per request up 5× |
 
-- [ ] **Create `scripts/triage/generate_incidents.py`**: run about 25 time windows of generations, each with 0 or 1 fault switched on. Write `data/triage/incidents.jsonl` with `{incident_id, window_start, window_end, fault, root_cause, affected_agent}`.
-- [ ] **Include about 5 healthy windows** with no fault, where the agent should answer "healthy". This catches false alarms.
+  *As built: `quota_429:rate` fails each call with that probability, retries included (3 retries with a 1 s "retry in" hint). Only an input-parser failure gives the stub; later failures are swallowed by the agents, so most quota requests still say `source=llm`. `slow_model:agent:secs`. `truncate:max_tokens`. `bad_prompt:factor` asks Review for factor × the target length and reports `prompt_version=v2`. `agent_crash:agent` (default `tone_stylist`) raises an `AttributeError` before the agent runs. `cost_spike:factor` adds factor × 1,500 characters of earlier-thread context to every prompt (about 5× tokens at factor 5): repeating the template inputs alone only gave about 1.5×.*
 
-**Done when:** at least 20 labelled windows exist, with matching telemetry in the DB or JSONL.
+- [x] **Create `scripts/triage/generate_incidents.py`**: run about 25 time windows of generations, each with 0 or 1 fault switched on. Write `data/triage/incidents.jsonl` with `{incident_id, window_start, window_end, fault, root_cause, affected_agent}`. *Done: 26 windows (3 variants of each of the 7 faults, plus 5 healthy). Each window has 4 requests, preceded by a 2-request healthy baseline (`baseline_start/end` in the label). Output goes to `data/triage/<scripted|live>/` (`telemetry.jsonl`, `incidents.jsonl`, `manifest.json`). Root-cause labels live in `triage/taxonomy.py`, shared with Day 3. Config-style faults (truncate, bad_prompt, agent_crash, cost_spike) come with a simulated deploy (a `startup` event with a new revision) and a rollback; 2 healthy windows get a harmless deploy too, so "a deploy happened" isn't the answer by itself. Labels whose healthy periods show errors are flagged `contaminated`.*
+- [x] **Include about 5 healthy windows** with no fault, where the agent should answer "healthy". This catches false alarms.
+- [x] **Model choice:** a scripted stand-in for Gemini (`scripts/triage/scripted_llm.py`) by default: free, offline, repeatable (`--seed`). It answers every agent's prompt in the right shape, writes emails of the requested length, counts tokens from the real text, and truncates at the token cap. Final numbers should come from `--live` (real Gemini), run on your PC:
+
+  ```powershell
+  python scripts\triage\generate_incidents.py --live     # needs GEMINI_API_KEY in .env; 156 requests, roughly 20-40 min with the default --pace 3, well under $1
+  ```
+
+  The scripted run takes about 3 minutes. The committed dataset is `data/triage/scripted/` (seed 7, 1,101 events, no contaminated windows).
+
+**Done when:** at least 20 labelled windows exist, with matching telemetry in the DB or JSONL. *Done: 26 windows in `data/triage/scripted/`. Tests: `tests/test_faults.py` (14).*
 
 ---
 

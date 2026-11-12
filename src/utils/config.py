@@ -60,6 +60,11 @@ class Settings(BaseSettings):
     telemetry_file: Optional[str] = None
     # json (one JSON object per line, for Cloud Logging) | text
     log_format: str = "json"
+
+    # Fault injection for the triage eval (src/utils/faults.py). Local only:
+    # always off on Cloud Run, whatever these say.
+    enable_faults: bool = False
+    faults: Optional[str] = None  # process-wide spec, e.g. "quota_429:0.4"
     metrics_flush_interval: int = 60  # seconds between auto flush (if implemented later)
 
     # === INFRASTRUCTURE CONFIGURATION ===

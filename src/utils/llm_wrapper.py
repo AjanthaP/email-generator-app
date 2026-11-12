@@ -34,7 +34,7 @@ from typing import Any, Callable, Optional, Tuple
 
 from .config import settings
 from .metrics import metrics
-from . import telemetry
+from . import faults, telemetry
 try:
     # Optional: rate limiter is only used when enabled
     from .rate_limiter import RateLimiter
@@ -241,6 +241,11 @@ class LLMWrapper:
         if not hasattr(chain, "invoke"):
             raise ValueError("Provided chain does not have an 'invoke' method")
 
+        agent_name = agent or telemetry.current_agent() or "unknown"
+        # Local fault injection; a no-op unless ENABLE_FAULTS=true (never on Cloud Run).
+        plan = faults.plan_call(agent_name, params)
+        params = plan.params
+
         # Token estimate for rate limiter pre-check (best-effort)
         est_in_tokens = self._estimate_input_tokens(params)
 
@@ -249,9 +254,8 @@ class LLMWrapper:
             self._rate_limiter.acquire(est_in_tokens)
 
         # Wrap bound method call
-        bound = chain.invoke
+        bound = plan.wrap(chain.invoke)
 
-        agent_name = agent or telemetry.current_agent() or "unknown"
         start = time.time()
         error_msg: Optional[str] = None
         error_type: Optional[str] = None

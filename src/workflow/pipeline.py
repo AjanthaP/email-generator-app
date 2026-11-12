@@ -22,7 +22,7 @@ from src.agents.review import ReviewAgent
 from src.agents.router import RouterAgent
 from src.utils.llm_wrapper import make_wrapper, LLMWrapper
 from src.utils.observability import activate_langsmith
-from src.utils import telemetry
+from src.utils import faults, telemetry
 import logging
 
 logger = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ def _init_llm() -> ChatGoogleGenerativeAI:
         model=settings.gemini_model,
         google_api_key=settings.gemini_api_key,
         temperature=settings.temperature,
-        max_output_tokens=settings.max_tokens,
+        max_output_tokens=faults.max_output_tokens() or settings.max_tokens,
     )
 
 
@@ -232,7 +232,7 @@ def execute_workflow(
     The request ID is also returned in `metadata.request_id`.
     """
     run = _RunInfo()
-    with telemetry.request_scope(endpoint, request_id) as ctx:
+    with telemetry.request_scope(endpoint, request_id, faults.prompt_version()) as ctx:
         state: Optional[EmailState] = None
         error: Optional[BaseException] = None
         try:
@@ -335,6 +335,7 @@ def _run_pipeline(
         run.agents_run.append(node_name)
         try:
             with telemetry.agent_scope(node_name):
+                faults.maybe_crash(node_name)  # no-op unless faults are on
                 updates = agent(state) or {}
             # Merge updates into state. Agents add metadata keys (review,
             # router); merge them so they don't wipe source/model/request_id.
