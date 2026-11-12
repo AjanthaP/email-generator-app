@@ -6,8 +6,8 @@ import json
 class Settings(BaseSettings):
     # API Configuration
     gemini_api_key: str
-    #gemini_model: str = "gemini-2.0-flash"
-    gemini_model: str = "gemini-2.0-flash-lite"
+    # gemini-2.0-flash-lite was shut down on 2026-06-01; production uses this one.
+    gemini_model: str = "gemini-3.5-flash-lite"
 
     # Application Settings
     app_name: str = "AI Email Assistant"
@@ -38,8 +38,10 @@ class Settings(BaseSettings):
     # Metrics / Cost Tracking
     enable_cost_tracking: bool = False
     # Pricing (USD per 1M tokens) - can be overridden via env; defaults approximate and illustrative
-    price_input_per_million: float = 0.15  # hypothetical Gemini Flash input pricing
-    price_output_per_million: float = 0.60  # hypothetical Gemini Flash output pricing
+    # List price of gemini-3.5-flash-lite (Nov 2026). Override with
+    # PRICE_INPUT_PER_MILLION / PRICE_OUTPUT_PER_MILLION when GEMINI_MODEL changes.
+    price_input_per_million: float = 0.30
+    price_output_per_million: float = 2.50
 
     # Rate Limiting (client-side guard rails)
     enable_rate_limiter: bool = False

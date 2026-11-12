@@ -107,7 +107,7 @@ def test_one_request_id_per_run_with_call_rows_and_summary(events_file):
     assert s["finish_reasons"] == {"STOP": 7}
     assert s["target_words"] == 60 and s["length_deviation_pct"] is not None
     assert s["agents_run"] == default_graph_order()
-    assert s["model"] == "gemini-2.0-flash-lite", "review/router metadata must not wipe the pipeline's"
+    assert s["model"] == settings.gemini_model, "review/router metadata must not wipe the pipeline's"
     assert state["metadata"]["request_id"] == "test-req-0001"
     assert state["metadata"]["llm_router_used"] is True
     assert of_type(events, "agent_fallback") == []

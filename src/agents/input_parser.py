@@ -60,7 +60,7 @@ class InputParserAgent:
     - Background context
     
     Example:
-        >>> llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
+        >>> llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite")
         >>> parser = InputParserAgent(llm)
         >>> result = parser.parse("Write an outreach email to John at TechCorp...")
         >>> print(result.email_purpose)

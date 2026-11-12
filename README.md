@@ -5,7 +5,7 @@ AI-powered email generation assistant: a FastAPI backend that runs a sequential 
 > **Current status (November 2026)**
 > - **Backend:** Google Cloud Run, service `email-generator-app` in region `asia-south1`, at https://email-generator-app-956218235973.asia-south1.run.app
 > - **Frontend:** Vercel, at https://email-generator-app-frontend.vercel.app
-> - **LLM:** Google Gemini. The default model is `gemini-2.0-flash-lite`; override it with `GEMINI_MODEL`.
+> - **LLM:** Google Gemini. The default model is `gemini-3.5-flash-lite` (production uses it too); override it with `GEMINI_MODEL`.
 > - **Database:** not connected in production yet. `DATABASE_URL` is not set on the Cloud Run service, so drafts, profiles and sessions use the JSON fallback inside the container. Cloud Run storage is temporary, so this data is lost whenever an instance restarts or a new revision is deployed. The PostgreSQL database from the earlier Railway setup still exists but is not wired to Cloud Run.
 > - **Not used in production:** Redis, ChromaDB and MongoDB. They remain optional feature flags.
 > - **Railway hosting is retired.** `railway.json`, `.github/workflows/railway-deploy.yml` and the Railway guides in `docs/guides/` are leftovers from that setup.
@@ -203,7 +203,7 @@ Draft history normalized to always expose both `content` and `draft` keys for ba
 | Variable | Purpose |
 |----------|---------|
 | `GEMINI_API_KEY` | Google Generative AI access (required) |
-| `GEMINI_MODEL` | Gemini model name (default `gemini-2.0-flash-lite`) |
+| `GEMINI_MODEL` | Gemini model name (default `gemini-3.5-flash-lite`; `gemini-2.0-*` models were shut down on June 1, 2026). Update `PRICE_INPUT_PER_MILLION` / `PRICE_OUTPUT_PER_MILLION` if you change it. |
 | `DATABASE_URL` | PostgreSQL connection string (`postgresql://user:pass@host:port/db`); unset means JSON fallback |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | Google OAuth. The redirect URI must match what's registered in Google Cloud Console (the default points at localhost). |
 | `ENABLE_GITHUB_OAUTH`, `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` / `GITHUB_REDIRECT_URI` | GitHub OAuth (enabled in production) |
